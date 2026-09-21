@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "case_not_found",
+    "message": "Case 'case-unknown' was not found."
+  }
+}
