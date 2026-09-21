@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Frontend and local secrets
+node_modules/
+.env.*
+!.env.example
+.DS_Store
+*.pem
+*.key
