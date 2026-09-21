@@ -45,6 +45,7 @@ docker compose up --build
 - [Границы MVP и демонстрация](docs/product.md)
 - [Архитектура и договорённости по данным](docs/architecture.md)
 - [План и задачи команды](docs/roadmap.md)
+- [Журнал выполненной работы](docs/progress.md)
 - [Правила совместной работы](CONTRIBUTING.md)
 - [Разработка с AI-помощниками](docs/ai-assisted-development.md)
 - [Подключение MAX и подготовка сдачи](docs/delivery.md)
