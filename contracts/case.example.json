@@ -1,0 +1,19 @@
+{
+  "id": "demo-case-001",
+  "equipment_id": "Н-204",
+  "symptom": "Повышенная вибрация",
+  "cause": null,
+  "action": "Подтянули крепление муфты",
+  "result": "Вибрация исчезла",
+  "status": "draft",
+  "source": {
+    "id": "demo-message-001",
+    "type": "max_message",
+    "text": "На Н-204 выросла вибрация. Подтянули крепление муфты — вибрация ушла.",
+    "author_id": "demo-user-001",
+    "received_at": "2026-09-21T09:00:00Z"
+  },
+  "confirmed_by": null,
+  "confirmed_at": null,
+  "is_demo": true
+}

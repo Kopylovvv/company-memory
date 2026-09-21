@@ -1,0 +1,20 @@
+name: Ошибка
+description: Воспроизводимая проблема
+title: "[Bug] "
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Ожидаемый и фактический результат
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия / commit и окружение

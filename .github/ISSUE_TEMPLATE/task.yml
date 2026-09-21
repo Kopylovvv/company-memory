@@ -1,0 +1,35 @@
+name: Задача
+description: Реализация с ответственным и проверяемым результатом
+title: "[Area] "
+body:
+  - type: input
+    id: owner
+    attributes:
+      label: Ответственный
+      description: Имя участника; назначьте его также в Assignees.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Результат
+      description: Что пользователь или команда смогут сделать после этой задачи?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Критерии готовности
+      value: "- [ ] "
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Зависимости и границы
+      description: Ссылки на блокирующие задачи; что не входит в работу.
+  - type: textarea
+    id: verification
+    attributes:
+      label: Проверка
+      description: Как воспроизвести результат и проверить ошибочный сценарий?
