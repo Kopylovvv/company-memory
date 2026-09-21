@@ -47,12 +47,23 @@ npm run build
 
 ## PostgreSQL
 
-В Docker backend будет обращаться к хосту `db`. Сейчас приложение БД не использует.
+В Docker backend обращается к хосту `db`; контейнер сам применяет миграции
+(`alembic upgrade head`) перед запуском `uvicorn`. Для запуска backend вне
+Docker: `docker compose up -d db`, затем из `backend/` — `uv run alembic
+upgrade head`. Настройки подключения — переменные `POSTGRES_*` (см.
+`.env.example`); без них используются значения по умолчанию оттуда же.
+
 Для просмотра БД: `docker compose exec db psql -U company_memory -d company_memory`
 (если изменили пользователя или БД, подставьте свои значения).
 
+Новая миграция: `uv run alembic revision -m "описание"` из `backend/`,
+затем заполнить `upgrade()`/`downgrade()` вручную (autogenerate требует живой
+БД с текущей схемой — см. `backend/app/db/README.md`).
+
 ## Что проверяет CI
 
-Ruff, pytest, сборку frontend и запуск Compose с проверкой маршрута API через
-frontend proxy. Это проверки каркаса; продуктовые сценарии добавляются вместе
-с реализацией, а не считаются проверенными заранее.
+Ruff, pytest (с реальным Postgres-сервисом и применёнными миграциями —
+`backend/tests/test_db_case_repository.py` не пропускается в CI), сборку
+frontend и запуск Compose с проверкой маршрута API через frontend proxy. Это
+проверки каркаса; продуктовые сценарии добавляются вместе с реализацией, а не
+считаются проверенными заранее.

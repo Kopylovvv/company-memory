@@ -1,14 +1,15 @@
 """Shared FastAPI dependencies for the API layer."""
 
-from fastapi import Header
+from fastapi import Depends, Header
+from sqlalchemy.orm import Session
 
-from app.cases.service import CaseService
+from app.cases.protocol import CaseServiceProtocol
+from app.db.engine import get_session
+from app.db.repository import DbCaseService
 
-_case_service = CaseService()
 
-
-def get_case_service() -> CaseService:
-    return _case_service
+def get_case_service(session: Session = Depends(get_session)) -> CaseServiceProtocol:
+    return DbCaseService(session)
 
 
 def get_current_user_id(x_demo_user_id: str = Header(min_length=1)) -> str:
