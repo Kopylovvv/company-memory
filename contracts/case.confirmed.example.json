@@ -1,0 +1,29 @@
+{
+  "id": "case-demo0002def",
+  "status": "confirmed",
+  "source": {
+    "id": "demo-message-002",
+    "type": "max_message",
+    "text": "Ремонтировал Н-204: вибрация из-за муфты, подтянул крепление, боец Смирнов помогал на месте.",
+    "author_id": "demo-user-002",
+    "received_at": "2026-09-20T14:10:00Z",
+    "external_event_id": "max-evt-demo-002"
+  },
+  "equipment": {
+    "id": "Н-204",
+    "label": "Насос Н-204"
+  },
+  "symptom": "Повышенная вибрация",
+  "cause": "Ослабло крепление муфты",
+  "action": "Подтянули крепление муфты",
+  "result": "Вибрация исчезла",
+  "participant": {
+    "id": "participant-smirnov",
+    "display_name": "Смирнов"
+  },
+  "confirmed_by": "demo-user-003",
+  "confirmed_at": "2026-09-20T15:00:00Z",
+  "created_at": "2026-09-20T14:10:05Z",
+  "updated_at": "2026-09-20T15:00:00Z",
+  "is_demo": true
+}
