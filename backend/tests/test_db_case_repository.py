@@ -18,6 +18,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.bot.handler import MaxUpdateHandler
+from app.bot.models import MaxUpdate
 from app.cases.models import CaseConfirmRequest, CaseCreateRequest, Equipment, Source
 from app.db.engine import engine
 from app.db.repository import DbCaseService
@@ -114,3 +116,33 @@ def test_search_excludes_draft_cases(service):
 
     results = service.search(q=None, equipment_id="eq-204", limit=20)
     assert not any(c.id == case.id for c in results)
+
+
+def test_bot_update_is_persisted_and_survives_redelivery(service, db_session):
+    """Issue #5 through Postgres: the same MAX message must not create a second case."""
+    update = MaxUpdate.model_validate(
+        {
+            "update_type": "message_created",
+            "timestamp": 1790000000000,
+            "message": {
+                "body": {"mid": "mid.bot.integration", "text": "Течь сальника на Н-204"},
+                "recipient": {"chat_id": 501, "user_id": 400790839, "chat_type": "dialog"},
+                "timestamp": 1790000000000,
+                "sender": {"user_id": 4242, "first_name": "Иван", "is_bot": False},
+            },
+        }
+    )
+    handler = MaxUpdateHandler(service)
+
+    first = handler.handle(update)
+    second = MaxUpdateHandler(DbCaseService(db_session)).handle(update)
+
+    assert first.created is True
+    assert second.created is False
+    assert first.case.id == second.case.id
+    assert second.has_reply is False
+
+    stored = DbCaseService(db_session).get(first.case.id)
+    assert stored.source.id == "mid.bot.integration"
+    assert stored.source.author_id == "4242"
+    assert stored.status == "draft"

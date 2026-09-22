@@ -26,6 +26,22 @@ uv run pytest
 При намеренном изменении зависимостей обновляйте `pyproject.toml` и `uv.lock`
 в одном PR. Зафиксированный lock применяется в CI и Docker.
 
+## Бот MAX отдельно
+
+Нужны поднятая БД с применёнными миграциями, токен бота и CA-бандл с
+Russian Trusted Root CA (сертификат API MAX выпущен Минцифры, стандартные
+хранилища его не знают). Подробности и команды сборки бандла —
+`backend/app/bot/README.md`. Из папки `backend`:
+
+```sh
+export MAX_BOT_TOKEN=...            # только окружение, не в коде и не в Git
+export MAX_API_CA_BUNDLE=/path/to/max-ca-bundle.pem
+uv run python -m app.bot.polling --once
+```
+
+`--once` обрабатывает один цикл long polling и выходит; без флага бот работает
+постоянно. Токен в репозиторий не коммитим: локально он живёт в `.env`.
+
 ## Frontend отдельно
 
 Нужны Node.js 22.12+ и npm. Из папки `frontend`:
