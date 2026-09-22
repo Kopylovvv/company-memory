@@ -12,7 +12,7 @@
 
 | Участник | Первый результат |
 | --- | --- |
-| Александр | Уточнить правила (#1), выбрать сервер и HTTPS (#11) |
+| Александр | Уточнить правила (#1), настроить деплой и HTTPS на VM из #11 |
 | Андрей | Согласовать контракт (#2), затем хранение (#4) и вход MAX (#5) |
 | Макс | Совместно согласовать контракт (#2), собрать примеры (#3), затем извлечение (#6) |
 | Егор | Согласовать контракт (#2), описать и проверить диалог бота (#16) |
@@ -50,7 +50,7 @@
 | [#8](https://github.com/Kopylovvv/company-memory/issues/8) | Поиск подтверждённых случаев | Макс |
 | [#9](https://github.com/Kopylovvv/company-memory/issues/9) | Мини-приложение, опционально | Егор |
 | [#10](https://github.com/Kopylovvv/company-memory/issues/10) | Проверка пользователя MAX | Андрей |
-| [#11](https://github.com/Kopylovvv/company-memory/issues/11) | Общий HTTPS-сервер | Александр |
+| [#11](https://github.com/Kopylovvv/company-memory/issues/11) | VM Андрея; деплой и HTTPS Александра | Андрей и Александр |
 | [#12](https://github.com/Kopylovvv/company-memory/issues/12) | Приёмка всей цепочки | Александр и вся команда |
 | [#13](https://github.com/Kopylovvv/company-memory/issues/13) | Измерение, демо и сдача | Александр и вся команда |
 | [#14](https://github.com/Kopylovvv/company-memory/issues/14) | Голосовые, опционально | Макс, помогает Андрей |
