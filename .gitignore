@@ -221,6 +221,7 @@ __marimo__/
 node_modules/
 .env.*
 !.env.example
+!infra/.env.production.example
 .DS_Store
 *.pem
 *.key

@@ -53,6 +53,8 @@ docker compose up --build
 - [Правила совместной работы](CONTRIBUTING.md)
 - [Разработка с AI-помощниками](docs/ai-assisted-development.md)
 - [Подключение MAX и подготовка сдачи](docs/delivery.md)
+- [Production на виртуальной машине](infra/production.md)
+- [Сценарий демо и измерение пользы](docs/demo.md)
 
 ## Структура
 

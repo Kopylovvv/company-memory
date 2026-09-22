@@ -62,6 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: cp .env.example .env
       - run: docker compose config --quiet
+      - run: docker compose --env-file infra/.env.production.example -f compose.prod.yaml config --quiet
       - run: docker compose up --build --wait --wait-timeout 180
       - name: Verify API through the frontend proxy
         run: |
