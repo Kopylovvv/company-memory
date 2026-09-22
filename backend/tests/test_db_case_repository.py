@@ -20,9 +20,21 @@ from sqlalchemy.orm import Session
 
 from app.bot.handler import MaxUpdateHandler
 from app.bot.models import MaxUpdate
-from app.cases.models import CaseConfirmRequest, CaseCreateRequest, Equipment, Source
+from app.cases.errors import CaseForbiddenError
+from app.cases.models import (
+    CaseConfirmRequest,
+    CaseCreateRequest,
+    CaseUpdateRequest,
+    Equipment,
+    Source,
+)
 from app.db.engine import engine
 from app.db.repository import DbCaseService
+from app.identity import Actor
+
+# Identity as the bot establishes it from a verified MAX event (Issue #10).
+AUTHOR = Actor(user_id="demo-user-001", verified_via="max_bot_event")
+STRANGER = Actor(user_id="someone-else", verified_via="max_bot_event")
 
 
 def _database_reachable() -> bool:
@@ -92,17 +104,17 @@ def test_create_is_idempotent_on_replay(service):
 
 def test_confirm_persists_across_sessions(service, db_session):
     case, _ = service.create(_create_request())
-    service.confirm(case.id, CaseConfirmRequest(), "andrey")
+    service.confirm(case.id, CaseConfirmRequest(), AUTHOR)
 
     reloaded = DbCaseService(db_session).get(case.id)
     assert reloaded.status == "confirmed"
-    assert reloaded.confirmed_by == "andrey"
+    assert reloaded.confirmed_by == AUTHOR.user_id
     assert reloaded.confirmed_at is not None
 
 
 def test_search_and_history_return_confirmed_cases_for_equipment(service):
     case, _ = service.create(_create_request())
-    service.confirm(case.id, CaseConfirmRequest(), "andrey")
+    service.confirm(case.id, CaseConfirmRequest(), AUTHOR)
 
     results = service.search(q=None, equipment_id="eq-204", limit=20)
     assert any(c.id == case.id for c in results)
@@ -146,3 +158,20 @@ def test_bot_update_is_persisted_and_survives_redelivery(service, db_session):
     assert stored.source.id == "mid.bot.integration"
     assert stored.source.author_id == "4242"
     assert stored.status == "draft"
+
+
+def test_only_the_author_may_correct_or_confirm_a_stored_draft(service):
+    """Issue #10 through Postgres: a foreign modification is refused, not applied."""
+    case, _ = service.create(_create_request())
+
+    with pytest.raises(CaseForbiddenError):
+        service.update(case.id, CaseUpdateRequest(cause="чужая правка"), STRANGER)
+    with pytest.raises(CaseForbiddenError):
+        service.confirm(case.id, CaseConfirmRequest(), STRANGER)
+
+    untouched = service.get(case.id)
+    assert untouched.status == "draft"
+    assert untouched.cause is None
+
+    confirmed = service.confirm(case.id, CaseConfirmRequest(), AUTHOR)
+    assert confirmed.confirmed_by == AUTHOR.user_id

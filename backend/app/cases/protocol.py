@@ -9,6 +9,7 @@ layer without it caring which is behind the call.
 from typing import Protocol
 
 from app.cases.models import Case, CaseConfirmRequest, CaseCreateRequest, CaseUpdateRequest
+from app.identity import Actor
 
 
 class CaseServiceProtocol(Protocol):
@@ -16,9 +17,9 @@ class CaseServiceProtocol(Protocol):
 
     def get(self, case_id: str) -> Case: ...
 
-    def update(self, case_id: str, payload: CaseUpdateRequest) -> Case: ...
+    def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case: ...
 
-    def confirm(self, case_id: str, payload: CaseConfirmRequest, user_id: str) -> Case: ...
+    def confirm(self, case_id: str, payload: CaseConfirmRequest, actor: Actor) -> Case: ...
 
     def search(self, *, q: str | None, equipment_id: str | None, limit: int) -> list[Case]: ...
 

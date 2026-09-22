@@ -19,6 +19,8 @@ from app.cases.models import (
     Participant,
     ParticipantInput,
 )
+from app.cases.permissions import ensure_may_modify
+from app.identity import Actor
 
 
 def _now() -> datetime:
@@ -80,16 +82,18 @@ class CaseService:
         except KeyError as exc:
             raise CaseNotFoundError(case_id) from exc
 
-    def update(self, case_id: str, payload: CaseUpdateRequest) -> Case:
+    def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case:
         case = self.get(case_id)
+        ensure_may_modify(actor, case_id=case_id, source_author_id=case.source.author_id)
         if case.status == "confirmed":
             raise CaseAlreadyConfirmedError(case_id)
         updated = self._apply(case, payload)
         self._cases[case_id] = updated
         return updated
 
-    def confirm(self, case_id: str, payload: CaseConfirmRequest, user_id: str) -> Case:
+    def confirm(self, case_id: str, payload: CaseConfirmRequest, actor: Actor) -> Case:
         case = self.get(case_id)
+        ensure_may_modify(actor, case_id=case_id, source_author_id=case.source.author_id)
         if case.status == "confirmed":
             raise CaseAlreadyConfirmedError(case_id)
         candidate = self._apply(case, payload)
@@ -101,7 +105,7 @@ class CaseService:
         confirmed = candidate.model_copy(
             update={
                 "status": "confirmed",
-                "confirmed_by": user_id,
+                "confirmed_by": actor.user_id,
                 "confirmed_at": now,
                 "updated_at": now,
             }

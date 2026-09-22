@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from app.bot.models import UPDATE_MESSAGE_CREATED, MaxUpdate, to_utc
 from app.cases.models import Case, CaseCreateRequest, Source
 from app.cases.protocol import CaseServiceProtocol
+from app.identity import actor_from_max_event
 
 # Placeholder wording. The bot's dialogue, commands and texts are Issue #16
 # (Egor); this adapter only has to confirm receipt so the sender is not left
@@ -63,13 +64,16 @@ class MaxUpdateHandler:
                 reply_chat_id=reply_chat_id,
             )
 
+        # MAX asserted this sender over the bot's authenticated connection, so the
+        # author recorded on the case is a verified identity, not a client claim.
+        author = actor_from_max_event(sender.user_id)
         case, created = self._case_service.create(
             CaseCreateRequest(
                 source=Source(
                     id=message.body.mid,
                     type="max_message",
                     text=text,
-                    author_id=str(sender.user_id),
+                    author_id=author.user_id,
                     received_at=to_utc(message.timestamp),
                     # Same message delivered twice must not create a second case.
                     external_event_id=message.body.mid,

@@ -24,7 +24,9 @@ from app.cases.models import (
     ParticipantInput,
     Source,
 )
+from app.cases.permissions import ensure_may_modify
 from app.db.models import CaseRow
+from app.identity import Actor
 
 
 def _now() -> datetime:
@@ -124,16 +126,18 @@ class DbCaseService:
     def get(self, case_id: str) -> Case:
         return _row_to_case(self._get_row(case_id))
 
-    def update(self, case_id: str, payload: CaseUpdateRequest) -> Case:
+    def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case:
         row = self._get_row(case_id)
+        ensure_may_modify(actor, case_id=case_id, source_author_id=row.source_author_id)
         if row.status == "confirmed":
             raise CaseAlreadyConfirmedError(case_id)
         self._apply(row, payload)
         self._session.commit()
         return _row_to_case(row)
 
-    def confirm(self, case_id: str, payload: CaseConfirmRequest, user_id: str) -> Case:
+    def confirm(self, case_id: str, payload: CaseConfirmRequest, actor: Actor) -> Case:
         row = self._get_row(case_id)
+        ensure_may_modify(actor, case_id=case_id, source_author_id=row.source_author_id)
         if row.status == "confirmed":
             raise CaseAlreadyConfirmedError(case_id)
         self._apply(row, payload)
@@ -142,7 +146,7 @@ class DbCaseService:
             raise InsufficientDataError(case_id)
         now = _now()
         row.status = "confirmed"
-        row.confirmed_by = user_id
+        row.confirmed_by = actor.user_id
         row.confirmed_at = now
         row.updated_at = now
         self._session.commit()
