@@ -141,9 +141,12 @@ def test_search_returns_only_confirmed_cases_for_the_equipment(client):
 
     response = client.get("/api/cases", params={"equipment_id": "eq-204"})
     assert response.status_code == 200
-    ids = [item["case"]["id"] for item in response.json()["items"]]
+    items = response.json()["items"]
+    ids = [item["case"]["id"] for item in items]
     assert confirmed_id in ids
     assert draft_id not in ids
+    assert all(item["similarity_score"] is None for item in items)
+    assert all(item["match_explanation"] is None for item in items)
 
 
 def test_equipment_history_lists_confirmed_cases(client):

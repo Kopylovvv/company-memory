@@ -149,9 +149,18 @@ class CaseSearchResult(ContractModel):
     case: Case
     similarity_score: float | None = Field(
         default=None,
+        ge=0.0,
+        le=1.0,
         description=(
-            "Relevance score once similarity search (Issue #8) ships; "
+            "Normalized relevance in [0, 1], where a larger value means a closer match; "
             "null under the current keyword filter."
+        ),
+    )
+    match_explanation: str | None = Field(
+        default=None,
+        description=(
+            "Short factual explanation of the matched fields; null until similarity search "
+            "(Issue #8) provides one."
         ),
     )
 

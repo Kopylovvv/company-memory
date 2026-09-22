@@ -30,7 +30,8 @@
         "updated_at": "2026-09-20T15:00:00Z",
         "is_demo": true
       },
-      "similarity_score": null
+      "similarity_score": null,
+      "match_explanation": null
     }
   ],
   "next_cursor": null
