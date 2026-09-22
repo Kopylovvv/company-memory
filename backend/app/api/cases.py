@@ -20,11 +20,11 @@ from app.cases.models import (
     CaseUpdateRequest,
     ErrorResponse,
 )
-from app.cases.service import CaseService
+from app.cases.protocol import CaseServiceProtocol
 
 router = APIRouter(tags=["cases"])
 
-ServiceDep = Annotated[CaseService, Depends(get_case_service)]
+ServiceDep = Annotated[CaseServiceProtocol, Depends(get_case_service)]
 
 
 @router.post(

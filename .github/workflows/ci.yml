@@ -11,6 +11,25 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: company_memory
+          POSTGRES_USER: company_memory
+          POSTGRES_PASSWORD: local_development_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U company_memory -d company_memory"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_DB: company_memory
+      POSTGRES_USER: company_memory
+      POSTGRES_PASSWORD: local_development_only
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,6 +39,7 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run alembic upgrade head
       - run: uv run pytest
   frontend:
     runs-on: ubuntu-latest
