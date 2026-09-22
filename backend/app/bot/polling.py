@@ -17,7 +17,7 @@ import time
 
 from app.bot.client import MaxApiError, MaxClient
 from app.bot.handler import HandledUpdate, MaxUpdateHandler
-from app.bot.models import MaxUpdate
+from app.bot.models import MaxUpdate, MaxUpdateList
 from app.bot.settings import MissingTokenError, load_max_bot_settings
 from app.cases.protocol import CaseServiceProtocol
 from app.db.engine import SessionLocal
@@ -54,6 +54,28 @@ def process_update(update: MaxUpdate, client: MaxClient) -> HandledUpdate:
     return outcome
 
 
+def process_batch(batch: MaxUpdateList, client: MaxClient, marker: int | None) -> int | None:
+    """Process one long-poll batch and return the marker to poll with next.
+
+    A batch is only committed — by moving the marker past it — once every
+    update in it was stored. If anything failed (the database is down, MAX
+    refused the reply), the marker stays where it was, so the platform can
+    deliver the batch again instead of the message being dropped on the floor.
+    Storing is idempotent by `mid`, so a redelivery cannot duplicate a case.
+    """
+    failed = False
+    for update in batch.updates:
+        mid = update.message.body.mid if update.message else "-"
+        try:
+            process_update(update, client)
+        except Exception as exc:
+            # Only the type reaches the log: a database error can carry a DSN,
+            # and an API error can echo the request back.
+            logger.error("could not process update %s: %s", mid, exc.__class__.__name__)
+            failed = True
+    return marker if failed else batch.marker
+
+
 def run(once: bool = False) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
@@ -81,14 +103,7 @@ def run(once: bool = False) -> int:
                 time.sleep(ERROR_BACKOFF_SECONDS)
                 continue
 
-            for update in batch.updates:
-                try:
-                    process_update(update, client)
-                except MaxApiError as exc:
-                    # Keep the marker unchanged so the platform redelivers it;
-                    # storing is idempotent, so a repeat cannot duplicate a case.
-                    logger.error("could not process an update: %s", exc)
-            marker = batch.marker
+            marker = process_batch(batch, client, marker)
 
             if once:
                 logger.info("processed %d update(s)", len(batch.updates))
