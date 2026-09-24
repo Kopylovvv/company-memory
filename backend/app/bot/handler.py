@@ -80,14 +80,9 @@ class MaxUpdateHandler:
                 )
             )
         )
-        if not created:
-            # Redelivery of an update we already stored: stay silent instead of
-            # answering the same message twice.
-            return HandledUpdate(case=case, created=False)
-
         return HandledUpdate(
             case=case,
-            created=True,
+            created=created,
             reply_text=ACK_TEMPLATE.format(case_id=case.id),
             reply_user_id=reply_user_id,
             reply_chat_id=reply_chat_id,

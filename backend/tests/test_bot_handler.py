@@ -59,7 +59,7 @@ def test_sender_gets_an_acknowledgement_with_the_case_id():
     assert outcome.reply_chat_id == 777
 
 
-def test_redelivered_update_creates_no_duplicate_and_stays_silent():
+def test_redelivered_update_creates_no_duplicate_and_retries_acknowledgement():
     handler, service = _handler()
 
     first = handler.handle(_update())
@@ -70,7 +70,8 @@ def test_redelivered_update_creates_no_duplicate_and_stays_silent():
     assert second.case is not None
     assert first.case is not None
     assert first.case.id == second.case.id
-    assert second.has_reply is False
+    assert second.has_reply is True
+    assert second.reply_text == first.reply_text
     # The stored case is still the first one, untouched and still a draft.
     assert service.get(first.case.id).status == "draft"
 

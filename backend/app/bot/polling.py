@@ -62,6 +62,8 @@ def process_batch(batch: MaxUpdateList, client: MaxClient, marker: int | None) -
     refused the reply), the marker stays where it was, so the platform can
     deliver the batch again instead of the message being dropped on the floor.
     Storing is idempotent by `mid`, so a redelivery cannot duplicate a case.
+    An acknowledgement may be sent more than once if a previous send succeeded
+    but the response was lost before the client could observe it.
     """
     failed = False
     for update in batch.updates:
