@@ -152,7 +152,8 @@ def test_bot_update_is_persisted_and_survives_redelivery(service, db_session):
     assert first.created is True
     assert second.created is False
     assert first.case.id == second.case.id
-    assert second.has_reply is False
+    assert second.has_reply is True
+    assert second.reply_text == first.reply_text
 
     stored = DbCaseService(db_session).get(first.case.id)
     assert stored.source.id == "mid.bot.integration"
