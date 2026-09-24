@@ -19,6 +19,16 @@ class CaseAlreadyConfirmedError(CaseError):
         super().__init__(f"Case '{case_id}' is already confirmed and cannot be changed this way.")
 
 
+class CaseForbiddenError(CaseError):
+    code = "forbidden"
+
+    def __init__(self, case_id: str) -> None:
+        super().__init__(
+            f"Case '{case_id}' can only be corrected or confirmed by the author of its "
+            "source message."
+        )
+
+
 class InsufficientDataError(CaseError):
     code = "insufficient_data"
 
