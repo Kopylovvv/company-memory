@@ -81,10 +81,10 @@ def test_seed_loads_confirmed_cases_and_keeps_drafts_out_of_search(dataset):
     assert report.skipped == loads["none"]
 
     found = service.search(q=None, equipment_id=None, limit=100)
-    assert {c.source.id for c in found} == {
+    assert {r.case.source.id for r in found} == {
         m.source_id for m in dataset.messages.messages if m.load == "confirmed"
     }
-    assert all(c.is_demo for c in found)
+    assert all(r.case.is_demo for r in found)
 
 
 def test_seed_twice_creates_no_duplicates(dataset):

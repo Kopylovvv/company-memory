@@ -13,11 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai.search import rank_cases
 from app.cases.errors import CaseAlreadyConfirmedError, CaseNotFoundError, InsufficientDataError
 from app.cases.models import (
     Case,
     CaseConfirmRequest,
     CaseCreateRequest,
+    CaseSearchResult,
     CaseUpdateRequest,
     Equipment,
     Participant,
@@ -152,18 +154,20 @@ class DbCaseService:
         self._session.commit()
         return _row_to_case(row)
 
-    def search(self, *, q: str | None, equipment_id: str | None, limit: int) -> list[Case]:
+    def search(
+        self, *, q: str | None, equipment_id: str | None, limit: int
+    ) -> list[CaseSearchResult]:
         stmt = select(CaseRow).where(CaseRow.status == "confirmed")
         if equipment_id:
             stmt = stmt.where(CaseRow.equipment_id == equipment_id)
         stmt = stmt.order_by(CaseRow.confirmed_at.desc().nullslast(), CaseRow.updated_at.desc())
-        if q is None:
-            stmt = stmt.limit(limit)
+        if not q:
+            rows = self._session.execute(stmt.limit(limit)).scalars().all()
+            return [CaseSearchResult(case=_row_to_case(r)) for r in rows]
+        # Ranking needs every confirmed candidate. Fine at MVP volume (hundreds of
+        # cases); a larger base needs a pre-filter in SQL before this step.
         rows = self._session.execute(stmt).scalars().all()
-        if q:
-            needle = q.lower()
-            rows = [r for r in rows if needle in self._searchable_text(r)][:limit]
-        return [_row_to_case(r) for r in rows]
+        return rank_cases(q, [_row_to_case(r) for r in rows], limit=limit)
 
     def history(self, equipment_id: str, *, limit: int) -> list[Case]:
         stmt = (
@@ -191,10 +195,6 @@ class DbCaseService:
         if row is None:
             raise CaseNotFoundError(case_id)
         return row
-
-    @staticmethod
-    def _searchable_text(row: CaseRow) -> str:
-        return " ".join(filter(None, [row.symptom, row.cause, row.action, row.result])).lower()
 
     @staticmethod
     def _apply(row: CaseRow, payload: CaseUpdateRequest) -> None:
