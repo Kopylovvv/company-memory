@@ -11,13 +11,21 @@ by side for a person to judge.
 
 The set is small and synthetic, so the numbers show whether the pipeline
 behaves, not how it will do on real messages.
+
+Usage from `backend/` (one model call per message, 20 in total):
+
+    uv run --env-file ../.env python -m app.ai.extraction_eval [--data-dir PATH]
 """
 
+import argparse
+import logging
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 
-from app.ai.dataset import Dataset, DemoMessage
+from app.ai.dataset import Dataset, DemoMessage, load_dataset
 from app.ai.extraction import TEXT_FIELDS, ModelClient, extract_or_empty
+from app.ai.yandex_gpt import ModelNotConfiguredError, YandexGptClient, load_yandex_gpt_settings
 
 FIELDS = ("equipment", *TEXT_FIELDS, "participant")
 
@@ -119,3 +127,22 @@ def format_report(report: ExtractionReport) -> str:
                 f"| {source} | {f.name} | {f.expected or '—'} | {f.predicted or '—'} | {f.kind} |"
             )
     return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Evaluate AI drafts on the synthetic set.")
+    parser.add_argument("--data-dir", type=Path, default=None)
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+
+    dataset = load_dataset(args.data_dir)
+    try:
+        settings = load_yandex_gpt_settings()
+    except ModelNotConfiguredError as exc:
+        raise SystemExit(str(exc)) from None
+    with YandexGptClient(settings) as client:
+        print(format_report(evaluate_extraction(dataset, client)))
+
+
+if __name__ == "__main__":
+    main()
