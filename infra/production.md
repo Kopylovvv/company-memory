@@ -13,8 +13,10 @@ Docker Engine и Compose v2. Публичный запуск разрешает�
 ## Схема
 
 Интернет → Caddy (`80/443`, автоматический TLS) → FastAPI (`8000` только внутри
-Compose) → PostgreSQL (только внутренняя сеть). Mini-app frontend не входит в
-bot-only P0. Caddy и PostgreSQL используют именованные volumes.
+Compose) → PostgreSQL (только внутренняя сеть). Рядом работает сервис `bot`: он
+читает события MAX (long polling), сохраняет сообщения как черновики случаев и
+не публикует портов. Mini-app frontend не входит в bot-only P0. Caddy и
+PostgreSQL используют именованные volumes.
 
 ## Подготовка VM
 
@@ -92,4 +94,7 @@ docker compose --env-file .env.production -f compose.prod.yaml exec -T db \
 - [ ] PostgreSQL и backend-порт недоступны из интернета.
 - [ ] Перезапуск VM сохраняет случаи и автоматически поднимает сервисы.
 - [ ] Backup восстановлен в тестовую БД; обновление и откат пройдены вручную.
+- [ ] Сервис `bot` запущен: в его логе `connected to MAX as @...`, а сообщение,
+  отправленное боту в MAX, попадает в БД (`stored as case` в логе). Локальные
+  запуски `app.bot.polling` с тем же токеном остановлены.
 - [ ] После #10 реальное событие MAX проходит через публичный endpoint.
