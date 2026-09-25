@@ -42,6 +42,29 @@ services:
       timeout: 5s
       retries: 10
 
+  # MAX bot (Issue #5). Same image as `backend`, but a different process: it long-polls
+  # MAX and stores messages as draft cases, so it needs the database and outbound
+  # internet but publishes no port. Migrations are run by `backend`, hence depends_on.
+  # Only ONE poller may consume a bot's updates: never run another `app.bot.polling`
+  # (a laptop, a second replica) against the same token, or the two steal messages
+  # from each other.
+  bot:
+    build: ./backend
+    restart: unless-stopped
+    command: [".venv/bin/python", "-m", "app.bot.polling"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-company_memory}
+      POSTGRES_USER: ${POSTGRES_USER:-company_memory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production env file}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:?Set MAX_BOT_TOKEN in the production env file}
+    networks:
+      - private
+      - public
+    depends_on:
+      backend:
+        condition: service_healthy
+
   caddy:
     image: caddy:2.10.2-alpine
     restart: unless-stopped

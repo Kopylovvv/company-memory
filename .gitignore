@@ -225,3 +225,7 @@ node_modules/
 .DS_Store
 *.pem
 *.key
+# The only tracked .pem files: PUBLIC root/sub CA certificates the MAX bot must trust
+# (see backend/certs and backend/app/bot/README.md). Never add a private key here.
+!backend/certs/russian_trusted_root_ca.pem
+!backend/certs/russian_trusted_sub_ca.pem
