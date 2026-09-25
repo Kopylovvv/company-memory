@@ -2,34 +2,62 @@ import { useEffect, useState } from 'react';
 
 type Status = 'loading' | 'ready' | 'error';
 
+interface HealthResponse {
+  status?: string;
+}
+
 export default function App() {
   const [status, setStatus] = useState<Status>('loading');
 
   useEffect(() => {
     const controller = new AbortController();
-    let active = true;
-    const timeout = window.setTimeout(() => controller.abort(), 5000);
+    let isMounted = true;
+
+    // Тайм-аут на 5 секунд
+    const timeoutId = window.setTimeout(() => {
+      controller.abort();
+    }, 5000);
 
     async function checkApi() {
       try {
         const response = await fetch('/api/health', { signal: controller.signal });
-        if (!response.ok) throw new Error('API request failed');
+        
+        if (!response.ok) {
+          throw new Error('API request failed');
+        }
+
         const data: unknown = await response.json();
-        if (!data || typeof data !== 'object' || !('status' in data) || data.status !== 'ok') {
+
+        const isOk =
+          typeof data === 'object' &&
+          data !== null &&
+          (data as HealthResponse).status === 'ok';
+
+        if (!isOk) {
           throw new Error('Unexpected health response');
         }
-        if (active) setStatus('ready');
-      } catch {
-        if (active) setStatus('error');
+
+        if (isMounted) {
+          setStatus('ready');
+        }
+      } catch (error) {
+        // Игнорируем отмену запроса при размонтировании
+        if (error instanceof DOMException && error.name === 'AbortError' && !controller.signal.aborted) {
+          return;
+        }
+        if (isMounted) {
+          setStatus('error');
+        }
       } finally {
-        window.clearTimeout(timeout);
+        window.clearTimeout(timeoutId);
       }
     }
 
     void checkApi();
+
     return () => {
-      active = false;
-      window.clearTimeout(timeout);
+      isMounted = false;
+      window.clearTimeout(timeoutId);
       controller.abort();
     };
   }, []);
@@ -39,7 +67,7 @@ export default function App() {
       <p className="eyebrow">Company Memory</p>
       <h1>Компания, которая не забывает</h1>
       <p>Сохраняем опыт команды и находим решения, которые уже помогли.</p>
-      <p>Test<p/>
+      <p>Test</p>
       <section aria-label="Статус разработки">
         <h2>Основа проекта готова</h2>
         <p>Здесь появятся поиск случаев, история оборудования и подтверждение опыта.</p>
