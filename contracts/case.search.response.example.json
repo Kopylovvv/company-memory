@@ -30,8 +30,8 @@
         "updated_at": "2026-09-20T15:00:00Z",
         "is_demo": true
       },
-      "similarity_score": null,
-      "match_explanation": null
+      "similarity_score": 0.82,
+      "match_explanation": "Совпадения — симптом: вибрация; результат: вибрация; оборудование: Н-204"
     }
   ],
   "next_cursor": null

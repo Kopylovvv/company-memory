@@ -145,6 +145,21 @@ def test_search_returns_only_confirmed_cases_for_the_equipment(client):
     assert all(item["match_explanation"] is None for item in items)
 
 
+def test_search_by_problem_returns_score_and_explanation(client):
+    case_id = _create(client).json()["id"]
+    client.post(f"/api/cases/{case_id}/confirm", json={})
+
+    response = client.get("/api/cases", params={"q": "сильно вибрирует"})
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert [item["case"]["id"] for item in items] == [case_id]
+    assert 0 < items[0]["similarity_score"] <= 1
+    assert "вибрирует" in items[0]["match_explanation"]
+
+    unknown = client.get("/api/cases", params={"q": "течёт кровля"})
+    assert unknown.json()["items"] == []
+
+
 def test_equipment_history_lists_confirmed_cases(client):
     case_id = _create(client).json()["id"]
     client.post(f"/api/cases/{case_id}/confirm", json={})

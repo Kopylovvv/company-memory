@@ -16,7 +16,6 @@ from app.cases.models import (
     CaseCreateRequest,
     CaseHistoryResponse,
     CaseSearchResponse,
-    CaseSearchResult,
     CaseUpdateRequest,
     ErrorResponse,
 )
@@ -67,13 +66,19 @@ def search_cases(
     service: ServiceDep,
     actor: ActorDep,
     q: Annotated[
-        str | None, Query(description="Free-text match over symptom/cause/action/result.")
+        str | None,
+        Query(
+            description=(
+                "Problem description. Cases are ranked by similarity of symptom/cause/"
+                "action/result and equipment; an empty list means no similar confirmed case."
+            )
+        ),
     ] = None,
     equipment_id: Annotated[str | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> CaseSearchResponse:
-    cases = service.search(q=q, equipment_id=equipment_id, limit=limit)
-    return CaseSearchResponse(items=[CaseSearchResult(case=c) for c in cases], next_cursor=None)
+    results = service.search(q=q, equipment_id=equipment_id, limit=limit)
+    return CaseSearchResponse(items=results, next_cursor=None)
 
 
 @router.get(

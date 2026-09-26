@@ -10,11 +10,13 @@ same method signatures and the same request/response shapes from
 import uuid
 from datetime import UTC, datetime
 
+from app.ai.search import rank_cases
 from app.cases.errors import CaseAlreadyConfirmedError, CaseNotFoundError, InsufficientDataError
 from app.cases.models import (
     Case,
     CaseConfirmRequest,
     CaseCreateRequest,
+    CaseSearchResult,
     CaseUpdateRequest,
     Participant,
     ParticipantInput,
@@ -113,15 +115,16 @@ class CaseService:
         self._cases[case_id] = confirmed
         return confirmed
 
-    def search(self, *, q: str | None, equipment_id: str | None, limit: int) -> list[Case]:
+    def search(
+        self, *, q: str | None, equipment_id: str | None, limit: int
+    ) -> list[CaseSearchResult]:
         results = [c for c in self._cases.values() if c.status == "confirmed"]
         if equipment_id:
             results = [c for c in results if c.equipment and c.equipment.id == equipment_id]
-        if q:
-            needle = q.lower()
-            results = [c for c in results if needle in self._searchable_text(c)]
         results.sort(key=lambda c: c.confirmed_at or c.updated_at, reverse=True)
-        return results[:limit]
+        if q:
+            return rank_cases(q, results, limit=limit)
+        return [CaseSearchResult(case=c) for c in results[:limit]]
 
     def history(self, equipment_id: str, *, limit: int) -> list[Case]:
         results = [
@@ -131,10 +134,6 @@ class CaseService:
         ]
         results.sort(key=lambda c: c.confirmed_at or c.updated_at, reverse=True)
         return results[:limit]
-
-    @staticmethod
-    def _searchable_text(case: Case) -> str:
-        return " ".join(filter(None, [case.symptom, case.cause, case.action, case.result])).lower()
 
     @staticmethod
     def _apply(case: Case, payload: CaseUpdateRequest) -> Case:
