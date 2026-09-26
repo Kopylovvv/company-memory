@@ -40,7 +40,8 @@ PostgreSQL используют именованные volumes.
 ```sh
 cp infra/.env.production.example .env.production
 chmod 600 .env.production
-# Заполнить DOMAIN, POSTGRES_PASSWORD, MAX_BOT_TOKEN и ключ AI на сервере.
+# Заполнить DOMAIN, POSTGRES_PASSWORD, MAX_BOT_TOKEN, LLM_API_KEY и YANDEX_FOLDER_ID
+# на сервере. Без LLM_API_KEY или YANDEX_FOLDER_ID бот работает, но черновики пустые.
 docker compose --env-file .env.production -f compose.prod.yaml config --quiet
 docker compose --env-file .env.production -f compose.prod.yaml up -d --build
 docker compose --env-file .env.production -f compose.prod.yaml ps

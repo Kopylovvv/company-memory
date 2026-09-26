@@ -231,3 +231,28 @@ def test_successful_batch_advances_the_marker(monkeypatch):
     next_marker = polling.process_batch(_batch(_update(), marker=999), client=None, marker=42)
 
     assert next_marker == 999
+
+
+# --- startup log: is AI extraction configured? -------------------------------
+
+
+def test_startup_log_warns_when_ai_is_not_configured(monkeypatch, caplog):
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_FOLDER_ID", raising=False)
+
+    with caplog.at_level(logging.INFO):
+        polling.log_ai_status()
+
+    assert "AI extraction is OFF" in caplog.text
+
+
+def test_startup_log_confirms_ai_without_leaking_the_key(monkeypatch, caplog):
+    secret = "AQVN-test-secret-value"
+    monkeypatch.setenv("LLM_API_KEY", secret)
+    monkeypatch.setenv("YANDEX_FOLDER_ID", "b1gtestfolder")
+
+    with caplog.at_level(logging.INFO):
+        polling.log_ai_status()
+
+    assert "AI extraction is ON" in caplog.text
+    assert secret not in caplog.text
