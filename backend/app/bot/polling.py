@@ -15,6 +15,7 @@ import logging
 import sys
 import time
 
+from app.ai.yandex_gpt import ModelNotConfiguredError, load_yandex_gpt_settings
 from app.bot.ai import extract_message
 from app.bot.client import MaxApiError, MaxClient
 from app.bot.handler import HandledUpdate, MaxUpdateHandler
@@ -79,8 +80,22 @@ def process_batch(batch: MaxUpdateList, client: MaxClient, marker: int | None) -
     return marker if failed else batch.marker
 
 
+def log_ai_status() -> None:
+    """Say at startup whether drafts will be AI-filled; never logs the key itself."""
+    try:
+        settings = load_yandex_gpt_settings()
+    except ModelNotConfiguredError:
+        logger.warning(
+            "AI extraction is OFF: LLM_API_KEY or YANDEX_FOLDER_ID is not set, "
+            "drafts will be created empty"
+        )
+        return
+    logger.info("AI extraction is ON: model %s", settings.model)
+
+
 def run(once: bool = False) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    log_ai_status()
     try:
         settings = load_max_bot_settings()
     except MissingTokenError as exc:

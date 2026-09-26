@@ -27,7 +27,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-company_memory}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the production env file}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:?Set MAX_BOT_TOKEN in the production env file}
-      AI_PROVIDER_API_KEY: ${AI_PROVIDER_API_KEY:-}
     expose:
       - "8000"
     networks:
