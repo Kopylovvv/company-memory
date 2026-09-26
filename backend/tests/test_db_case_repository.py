@@ -117,7 +117,7 @@ def test_search_and_history_return_confirmed_cases_for_equipment(service):
     service.confirm(case.id, CaseConfirmRequest(), AUTHOR)
 
     results = service.search(q=None, equipment_id="eq-204", limit=20)
-    assert any(c.id == case.id for c in results)
+    assert any(r.case.id == case.id for r in results)
 
     history = service.history("eq-204", limit=20)
     assert any(c.id == case.id for c in history)
@@ -127,7 +127,31 @@ def test_search_excludes_draft_cases(service):
     case, _ = service.create(_create_request())
 
     results = service.search(q=None, equipment_id="eq-204", limit=20)
-    assert not any(c.id == case.id for c in results)
+    assert not any(r.case.id == case.id for r in results)
+
+
+def test_search_by_problem_ranks_confirmed_cases_only(service):
+    """Issue #8 through Postgres: ranked, scored, and drafts stay out."""
+    confirmed, _ = service.create(_create_request())
+    service.confirm(confirmed.id, CaseConfirmRequest(), AUTHOR)
+    draft, _ = service.create(
+        _create_request(
+            source=Source(
+                id="demo-message-002",
+                type="max_message",
+                text="Н-204 опять вибрирует.",
+                author_id="demo-user-001",
+                received_at="2026-09-22T09:00:00Z",
+                external_event_id="max-evt-002",
+            ),
+        )
+    )
+
+    results = service.search(q="сильно трясёт", equipment_id=None, limit=20)
+    assert [r.case.id for r in results] == [confirmed.id]
+    assert draft.id != confirmed.id
+    assert results[0].similarity_score is not None
+    assert service.search(q="течёт кровля", equipment_id=None, limit=20) == []
 
 
 def test_bot_update_is_persisted_and_survives_redelivery(service, db_session):

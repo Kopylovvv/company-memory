@@ -153,14 +153,14 @@ class CaseSearchResult(ContractModel):
         le=1.0,
         description=(
             "Normalized relevance in [0, 1], where a larger value means a closer match; "
-            "null under the current keyword filter."
+            "null when listing without a query `q`."
         ),
     )
     match_explanation: str | None = Field(
         default=None,
         description=(
-            "Short factual explanation of the matched fields; null until similarity search "
-            "(Issue #8) provides one."
+            "Short factual explanation of the matched fields; null when listing without "
+            "a query `q`."
         ),
     )
 

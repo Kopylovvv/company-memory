@@ -1,0 +1,176 @@
+{
+  "notice": "СИНТЕТИЧЕСКИЕ ДАННЫЕ. Проверочные запросы к набору demo_messages.json; ожидаемые результаты — ID источников (source.id), а не ID случаев, которые назначает сервер.",
+  "queries": [
+    {
+      "id": "q-01",
+      "text": "насос вибрирует, что делали раньше?",
+      "phase": "seed",
+      "category": "same_symptom_diff_cause",
+      "expected_source_ids": ["demo-src-01", "demo-src-02", "demo-src-03"],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-02",
+      "text": "Н-204 сильно трясёт",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-01", "demo-src-03"],
+      "acceptable_source_ids": [],
+      "measurement_task": true
+    },
+    {
+      "id": "q-03",
+      "text": "гул и вибрация со стороны двигателя насоса",
+      "phase": "seed",
+      "category": "same_symptom_diff_cause",
+      "expected_source_ids": ["demo-src-02"],
+      "acceptable_source_ids": ["demo-src-01", "demo-src-03"],
+      "measurement_task": false
+    },
+    {
+      "id": "q-04",
+      "text": "компрессор перегревается, выбивает по температуре",
+      "phase": "seed",
+      "category": "same_symptom_diff_cause",
+      "expected_source_ids": ["demo-src-04", "demo-src-05"],
+      "acceptable_source_ids": [],
+      "measurement_task": true
+    },
+    {
+      "id": "q-05",
+      "text": "К-101 не держит давление в сети",
+      "phase": "seed",
+      "category": "exact_equipment",
+      "expected_source_ids": ["demo-src-15"],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-06",
+      "text": "лента на конвейере буксует",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-06", "demo-src-07"],
+      "acceptable_source_ids": ["demo-src-19"],
+      "measurement_task": true
+    },
+    {
+      "id": "q-07",
+      "text": "пресс не развивает усилие, давление не поднимается",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-08"],
+      "acceptable_source_ids": ["demo-src-09"],
+      "measurement_task": true
+    },
+    {
+      "id": "q-08",
+      "text": "медленный ход ползуна на прессе",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-09"],
+      "acceptable_source_ids": ["demo-src-08"],
+      "measurement_task": false
+    },
+    {
+      "id": "q-09",
+      "text": "стук в вентиляторе при пуске",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-10"],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-10",
+      "text": "дробление и плохая поверхность на токарном станке",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-14"],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-11",
+      "text": "упал напор на насосе Н-205",
+      "phase": "seed",
+      "category": "exact_equipment",
+      "expected_source_ids": ["demo-src-16"],
+      "acceptable_source_ids": ["demo-src-02"],
+      "measurement_task": true
+    },
+    {
+      "id": "q-12",
+      "text": "порвалась лента конвейера",
+      "phase": "seed",
+      "category": "paraphrase",
+      "expected_source_ids": ["demo-src-19"],
+      "acceptable_source_ids": ["demo-src-06", "demo-src-07"],
+      "measurement_task": false
+    },
+    {
+      "id": "q-13",
+      "text": "течёт кровля над складом готовой продукции",
+      "phase": "seed",
+      "category": "no_answer",
+      "expected_source_ids": [],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-14",
+      "text": "у сварочного аппарата пропадает дуга",
+      "phase": "seed",
+      "category": "no_answer",
+      "expected_source_ids": [],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-15",
+      "text": "шумит подшипник вытяжного вентилятора",
+      "phase": "seed",
+      "category": "draft_only",
+      "expected_source_ids": [],
+      "acceptable_source_ids": ["demo-src-10"],
+      "measurement_task": false
+    },
+    {
+      "id": "q-16",
+      "text": "вентилятор не запускается, выбивает автомат",
+      "phase": "seed",
+      "category": "draft_only",
+      "expected_source_ids": [],
+      "acceptable_source_ids": ["demo-src-10"],
+      "measurement_task": false
+    },
+    {
+      "id": "q-17",
+      "text": "течь по торцевому уплотнению насоса",
+      "phase": "seed",
+      "category": "draft_only",
+      "expected_source_ids": [],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-18",
+      "text": "запах гари от двигателя конвейера, греется коробка",
+      "phase": "seed",
+      "category": "live_demo_before",
+      "expected_source_ids": [],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    },
+    {
+      "id": "q-19",
+      "text": "запах гари от двигателя конвейера, греется коробка",
+      "phase": "after_live",
+      "category": "live_demo_after",
+      "expected_source_ids": ["demo-src-17"],
+      "acceptable_source_ids": [],
+      "measurement_task": false
+    }
+  ]
+}

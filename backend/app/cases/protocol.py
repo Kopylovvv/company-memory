@@ -8,7 +8,13 @@ layer without it caring which is behind the call.
 
 from typing import Protocol
 
-from app.cases.models import Case, CaseConfirmRequest, CaseCreateRequest, CaseUpdateRequest
+from app.cases.models import (
+    Case,
+    CaseConfirmRequest,
+    CaseCreateRequest,
+    CaseSearchResult,
+    CaseUpdateRequest,
+)
 from app.identity import Actor
 
 
@@ -21,6 +27,10 @@ class CaseServiceProtocol(Protocol):
 
     def confirm(self, case_id: str, payload: CaseConfirmRequest, actor: Actor) -> Case: ...
 
-    def search(self, *, q: str | None, equipment_id: str | None, limit: int) -> list[Case]: ...
+    def search(
+        self, *, q: str | None, equipment_id: str | None, limit: int
+    ) -> list[CaseSearchResult]:
+        """Confirmed cases only; with `q`, ranked by `app.ai.search` and scored."""
+        ...
 
     def history(self, equipment_id: str, *, limit: int) -> list[Case]: ...
