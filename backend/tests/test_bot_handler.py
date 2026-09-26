@@ -1,11 +1,16 @@
 """Issue #5: a MAX text message becomes a stored draft case and gets acknowledged."""
 
 import logging
+from datetime import UTC, datetime
 
+from app.ai.extraction import DraftExtraction, ExtractionOutcome
 from app.bot import polling
-from app.bot.handler import TEXT_ONLY_NOTICE, MaxUpdateHandler
+from app.bot.ai import extract_message
+from app.bot.handler import AI_UNAVAILABLE_NOTICE, TEXT_ONLY_NOTICE, MaxUpdateHandler
 from app.bot.models import MaxUpdate, MaxUpdateList
+from app.cases.models import CaseConfirmRequest, CaseCreateRequest, Equipment, Source
 from app.cases.service import CaseService
+from app.identity import actor_from_max_event
 
 MID = "mid.demo.0001"
 
@@ -120,6 +125,82 @@ def test_reply_goes_to_the_sender_when_there_is_no_chat_id():
 
     assert outcome.reply_user_id == 12345
     assert outcome.reply_chat_id is None
+
+
+def test_extraction_updates_a_saved_draft_and_does_not_rerun_on_redelivery():
+    service = CaseService()
+    calls = []
+
+    def extract(text):
+        assert service.search(q="вибрация", equipment_id=None, limit=3) == []
+        calls.append(text)
+        return ExtractionOutcome(
+            draft=DraftExtraction(equipment=Equipment(id="Н-204"), symptom="вибрация")
+        )
+
+    handler = MaxUpdateHandler(service, draft_extractor=extract)
+    first = handler.handle(_update())
+    second = handler.handle(_update())
+
+    assert first.case is not None
+    assert first.case.source.text == "На Н-204 выросла вибрация. Подтянули муфту."
+    assert first.case.equipment is not None and first.case.equipment.id == "Н-204"
+    assert first.case.symptom == "вибрация"
+    assert second.case is not None and second.case.id == first.case.id
+    assert len(calls) == 1
+
+
+def test_model_failure_keeps_the_original_message():
+    service = CaseService()
+    handler = MaxUpdateHandler(
+        service,
+        draft_extractor=lambda _text: ExtractionOutcome(
+            draft=DraftExtraction(), error="model_unavailable"
+        ),
+    )
+
+    outcome = handler.handle(_update())
+
+    assert outcome.case is not None
+    assert outcome.case.source.text.startswith("На Н-204")
+    assert outcome.case.status == "draft"
+    assert AI_UNAVAILABLE_NOTICE in outcome.reply_text
+
+
+def test_without_yandex_credentials_no_external_call_is_attempted(monkeypatch):
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("YANDEX_FOLDER_ID", raising=False)
+
+    outcome = extract_message("На Н-204 выросла вибрация")
+
+    assert outcome.error == "model_not_configured"
+    assert outcome.draft.case_fields()["symptom"] is None
+
+
+def test_search_command_returns_only_confirmed_cases_and_creates_no_draft():
+    service = CaseService()
+    case, _ = service.create(
+        CaseCreateRequest(
+            source=Source(
+                id="source-confirmed",
+                type="max_message",
+                text="На Н-204 была вибрация",
+                author_id="12345",
+                received_at=datetime.now(UTC),
+            ),
+            equipment=Equipment(id="Н-204"),
+            symptom="вибрация насоса",
+        )
+    )
+    service.confirm(case.id, CaseConfirmRequest(), actor_from_max_event(12345))
+    handler = MaxUpdateHandler(service)
+
+    result = handler.handle(_update(body={"mid": "search-command", "text": "/search вибрация"}))
+
+    assert result.case is None
+    assert case.id in result.reply_text
+    assert "source-confirmed" in result.reply_text
+    assert len(service.search(q=None, equipment_id=None, limit=20)) == 1
 
 
 # --- Issue #5: a failed batch must not be committed away --------------------

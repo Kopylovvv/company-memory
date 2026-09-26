@@ -15,6 +15,7 @@ import logging
 import sys
 import time
 
+from app.bot.ai import extract_message
 from app.bot.client import MaxApiError, MaxClient
 from app.bot.handler import HandledUpdate, MaxUpdateHandler
 from app.bot.models import MaxUpdate, MaxUpdateList
@@ -29,7 +30,7 @@ ERROR_BACKOFF_SECONDS = 5.0
 
 
 def _handle_update(update: MaxUpdate, case_service: CaseServiceProtocol) -> HandledUpdate:
-    handler = MaxUpdateHandler(case_service)
+    handler = MaxUpdateHandler(case_service, draft_extractor=extract_message)
     return handler.handle(update)
 
 
