@@ -127,6 +127,63 @@ def test_reply_goes_to_the_sender_when_there_is_no_chat_id():
     assert outcome.reply_chat_id is None
 
 
+def test_author_can_correct_confirm_and_find_case_in_bot():
+    handler, service = _handler()
+    created = handler.handle(_update())
+    case_id = created.case.id
+
+    edited = handler.handle(
+        _update(body={"mid": "edit.1", "text": f"/edit {case_id} оборудование Н-204"})
+    )
+    assert "Н-204" in edited.reply_text
+    assert service.get(case_id).equipment.id == "Н-204"
+
+    edited = handler.handle(
+        _update(body={"mid": "edit.2", "text": f"/edit {case_id} симптом сильная вибрация"})
+    )
+    assert "сильная вибрация" in edited.reply_text
+
+    confirmed = handler.handle(_update(body={"mid": "confirm.1", "text": f"/confirm {case_id}"}))
+    assert "подтверждён" in confirmed.reply_text
+    assert service.get(case_id).confirmed_by == "12345"
+
+    found = handler.handle(_update(body={"mid": "search.1", "text": "/search вибрация"}))
+    assert case_id in found.reply_text
+    assert "источник:" in found.reply_text
+
+
+def test_other_sender_cannot_change_or_confirm_draft():
+    handler, service = _handler()
+    case_id = handler.handle(_update()).case.id
+    other = {"user_id": 67890, "first_name": "Петр", "is_bot": False}
+
+    edited = handler.handle(
+        _update(sender=other, body={"mid": "edit.3", "text": f"/edit {case_id} оборудование Н-204"})
+    )
+    confirmed = handler.handle(
+        _update(sender=other, body={"mid": "confirm.2", "text": f"/confirm {case_id}"})
+    )
+
+    assert "только автор" in edited.reply_text
+    assert "только автор" in confirmed.reply_text
+    assert service.get(case_id).status == "draft"
+
+
+def test_confirmation_requires_enough_facts_and_commands_do_not_create_cases():
+    handler, service = _handler()
+    case_id = handler.handle(_update()).case.id
+
+    incomplete = handler.handle(_update(body={"mid": "confirm.3", "text": f"/confirm {case_id}"}))
+    malformed = handler.handle(
+        _update(body={"mid": "edit.4", "text": f"/edit {case_id} оборудование"})
+    )
+
+    assert "укажите оборудование" in incomplete.reply_text
+    assert "Формат:" in malformed.reply_text
+    assert service.get(case_id).status == "draft"
+    assert len(service._cases) == 1
+
+
 def test_extraction_updates_a_saved_draft_and_does_not_rerun_on_redelivery():
     service = CaseService()
     calls = []
