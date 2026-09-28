@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from pydantic import BaseModel, ConfigDict
 
 UPDATE_MESSAGE_CREATED = "message_created"
+UPDATE_BOT_STARTED = "bot_started"
 
 
 class MaxApiModel(BaseModel):
@@ -48,6 +49,8 @@ class MaxMessage(MaxApiModel):
 class MaxUpdate(MaxApiModel):
     update_type: str
     timestamp: int
+    chat_id: int | None = None
+    user: MaxUser | None = None
     # Optional even for message_created: the platform is known to deliver such an
     # update without a message for some native voice messages.
     message: MaxMessage | None = None

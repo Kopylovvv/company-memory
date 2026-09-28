@@ -111,6 +111,12 @@ def run(once: bool = False) -> int:
             logger.error("%s", exc)
             return 1
 
+        try:
+            client.set_commands()
+            logger.info("MAX command hints are registered")
+        except MaxApiError as exc:
+            logger.warning("could not register MAX command hints: %s", exc.__class__.__name__)
+
         while True:
             try:
                 batch = client.get_updates(marker)

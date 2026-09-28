@@ -130,6 +130,27 @@ def test_search_excludes_draft_cases(service):
     assert not any(r.case.id == case.id for r in results)
 
 
+def test_latest_draft_is_persisted_and_scoped_to_max_author(service):
+    first, _ = service.create(_create_request())
+    second, _ = service.create(
+        _create_request(
+            source=Source(
+                id="demo-message-002",
+                type="max_message",
+                text="Второй ремонт",
+                author_id=AUTHOR.user_id,
+                received_at="2026-09-22T09:00:00Z",
+                external_event_id="max-evt-002",
+            )
+        )
+    )
+
+    assert service.latest_draft(AUTHOR.user_id).id == second.id
+    assert service.latest_draft(STRANGER.user_id) is None
+    service.confirm(second.id, CaseConfirmRequest(), AUTHOR)
+    assert service.latest_draft(AUTHOR.user_id).id == first.id
+
+
 def test_search_by_problem_ranks_confirmed_cases_only(service):
     """Issue #8 through Postgres: ranked, scored, and drafts stay out."""
     confirmed, _ = service.create(_create_request())

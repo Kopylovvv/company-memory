@@ -8,7 +8,13 @@ from app.bot import polling
 from app.bot.ai import extract_message
 from app.bot.handler import AI_UNAVAILABLE_NOTICE, TEXT_ONLY_NOTICE, MaxUpdateHandler
 from app.bot.models import MaxUpdate, MaxUpdateList
-from app.cases.models import CaseConfirmRequest, CaseCreateRequest, Equipment, Source
+from app.cases.models import (
+    CaseConfirmRequest,
+    CaseCreateRequest,
+    CaseUpdateRequest,
+    Equipment,
+    Source,
+)
 from app.cases.service import CaseService
 from app.identity import actor_from_max_event
 
@@ -53,14 +59,15 @@ def test_text_message_is_stored_as_a_draft_with_source_fields():
     assert case.participant is None
 
 
-def test_sender_gets_an_acknowledgement_with_the_case_id():
+def test_sender_gets_an_acknowledgement_without_copying_the_case_id():
     handler, _ = _handler()
 
     outcome = handler.handle(_update())
 
     assert outcome.has_reply
     assert outcome.case is not None
-    assert outcome.case.id in outcome.reply_text
+    assert outcome.case.id not in outcome.reply_text
+    assert "/confirm" in outcome.reply_text
     assert outcome.reply_chat_id == 777
 
 
@@ -102,6 +109,25 @@ def test_bot_messages_and_other_update_types_are_ignored():
 
     assert from_bot.case is None and from_bot.has_reply is False
     assert other_type.case is None and other_type.has_reply is False
+
+
+def test_bot_started_greets_the_user_with_command_help():
+    handler, _ = _handler()
+    started = MaxUpdate.model_validate(
+        {
+            "update_type": "bot_started",
+            "timestamp": 1790000000000,
+            "chat_id": 777,
+            "user": {"user_id": 12345, "first_name": "Иван", "is_bot": False},
+        }
+    )
+
+    outcome = handler.handle(started)
+
+    assert "/search" in outcome.reply_text
+    assert "/confirm" in outcome.reply_text
+    assert outcome.reply_chat_id == 777
+    assert outcome.case is None
 
 
 def test_message_created_without_a_message_body_is_ignored():
@@ -148,8 +174,60 @@ def test_author_can_correct_confirm_and_find_case_in_bot():
     assert service.get(case_id).confirmed_by == "12345"
 
     found = handler.handle(_update(body={"mid": "search.1", "text": "/search вибрация"}))
-    assert case_id in found.reply_text
-    assert "источник:" in found.reply_text
+    assert "Н-204" in found.reply_text
+    assert "Симптом: сильная вибрация" in found.reply_text
+    assert "Источник:" in found.reply_text
+
+
+def test_commands_without_id_use_only_the_authors_latest_draft():
+    handler, service = _handler()
+    first = handler.handle(_update(body={"mid": "draft.1", "text": "Первый ремонт"})).case
+    second = handler.handle(_update(body={"mid": "draft.2", "text": "Второй ремонт"})).case
+    assert first is not None and second is not None
+
+    edited = handler.handle(
+        _update(body={"mid": "edit.latest", "text": "/edit оборудование Н-777"})
+    )
+    handler.handle(_update(body={"mid": "edit.latest.2", "text": "/edit результат течь устранена"}))
+    assert "Н-777" in edited.reply_text
+    assert service.get(first.id).equipment is None
+    assert service.get(second.id).equipment.id == "Н-777"
+
+    confirmed = handler.handle(_update(body={"mid": "confirm.latest", "text": "/confirm"}))
+    assert "подтверждён" in confirmed.reply_text
+    assert service.get(second.id).status == "confirmed"
+    assert service.get(first.id).status == "draft"
+
+    no_draft = handler.handle(
+        _update(
+            sender={"user_id": 67890, "first_name": "Петр", "is_bot": False},
+            body={"mid": "confirm.other", "text": "/confirm"},
+        )
+    )
+    assert "нет черновика" in no_draft.reply_text
+
+
+def test_search_result_includes_action_and_outcome():
+    handler, service = _handler()
+    created = handler.handle(_update()).case
+    assert created is not None
+    author = actor_from_max_event(12345)
+    service.update(
+        created.id,
+        CaseUpdateRequest(
+            equipment=Equipment(id="Н-204"),
+            symptom="вибрация насоса",
+            action="подтянули муфту",
+            result="вибрация исчезла",
+        ),
+        author,
+    )
+    service.confirm(created.id, CaseConfirmRequest(), author)
+
+    found = handler.handle(_update(body={"mid": "search.details", "text": "/search вибрация"}))
+
+    assert "Что сделали: подтянули муфту" in found.reply_text
+    assert "Результат: вибрация исчезла" in found.reply_text
 
 
 def test_other_sender_cannot_change_or_confirm_draft():
@@ -255,8 +333,9 @@ def test_search_command_returns_only_confirmed_cases_and_creates_no_draft():
     result = handler.handle(_update(body={"mid": "search-command", "text": "/search вибрация"}))
 
     assert result.case is None
-    assert case.id in result.reply_text
-    assert "source-confirmed" in result.reply_text
+    assert "Симптом: вибрация насоса" in result.reply_text
+    assert "Источник:" in result.reply_text
+    assert "source-confirmed" not in result.reply_text
     assert len(service.search(q=None, equipment_id=None, limit=20)) == 1
 
 
