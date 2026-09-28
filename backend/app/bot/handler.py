@@ -118,7 +118,7 @@ class MaxUpdateHandler:
                 detail.append(
                     f"Участник ремонта: {case.participant.display_name or case.participant.id}"
                 )
-            source_type = "MAX" if case.source.type == "max_message" else "синтетические данные"
+            source_type = "MAX" if case.source.type == "max_message" else "ручной ввод"
             detail.append(f"Источник: {source_type}, {case.source.received_at.date()}")
             lines.append("\n".join(detail))
         return self._reply("\n\n".join(lines), user_id=user_id, chat_id=chat_id)
