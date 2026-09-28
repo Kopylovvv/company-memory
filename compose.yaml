@@ -30,6 +30,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+  bot:
+    profiles: ["bot"]
+    build: ./backend
+    command: [".venv/bin/python", "-m", "app.bot.polling"]
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-company_memory}
+      POSTGRES_USER: ${POSTGRES_USER:-company_memory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env first}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      YANDEX_FOLDER_ID: ${YANDEX_FOLDER_ID:-}
+      YANDEX_GPT_MODEL: ${YANDEX_GPT_MODEL:-yandexgpt/latest}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
+    depends_on:
+      backend:
+        condition: service_healthy
   frontend:
     build: ./frontend
     environment:
