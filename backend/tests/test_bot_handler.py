@@ -179,7 +179,7 @@ def test_author_can_correct_confirm_and_find_case_in_bot():
     assert "Источник:" in found.reply_text
 
 
-def test_commands_without_id_use_only_the_authors_latest_draft():
+def test_commands_without_id_use_only_the_authors_latest_case():
     handler, service = _handler()
     first = handler.handle(_update(body={"mid": "draft.1", "text": "Первый ремонт"})).case
     second = handler.handle(_update(body={"mid": "draft.2", "text": "Второй ремонт"})).case
@@ -205,6 +205,42 @@ def test_commands_without_id_use_only_the_authors_latest_draft():
         )
     )
     assert "нет черновика" in no_draft.reply_text
+
+
+def test_repeated_confirm_never_confirms_an_older_unreviewed_draft():
+    """A double tap or a redelivered update must not confirm a draft nobody reviewed.
+
+    With AI on, every draft already has equipment and a symptom, so "enough facts"
+    does not stop it: only targeting the author's latest case, whatever its status,
+    does.
+    """
+
+    def ai(text):
+        equipment = "Н-101" if "Н-101" in text else "Н-204"
+        return ExtractionOutcome(
+            draft=DraftExtraction(equipment=Equipment(id=equipment), symptom=text)
+        )
+
+    service = CaseService()
+    handler = MaxUpdateHandler(service, draft_extractor=ai)
+    older = handler.handle(_update(body={"mid": "draft.old", "text": "Течь на Н-101"})).case
+    latest = handler.handle(_update(body={"mid": "draft.new", "text": "Вибрация на Н-204"})).case
+
+    confirm = _update(body={"mid": "confirm.once", "text": "/confirm"})
+    first = handler.handle(confirm)
+    redelivered = handler.handle(confirm)
+    tapped_again = handler.handle(_update(body={"mid": "confirm.twice", "text": "/confirm"}))
+
+    assert "подтверждён и доступен" in first.reply_text
+    assert "уже подтверждён" in redelivered.reply_text
+    assert "уже подтверждён" in tapped_again.reply_text
+    assert service.get(latest.id).status == "confirmed"
+    assert service.get(older.id).status == "draft"
+
+    # /edit without an ID must not silently move on to the older draft either.
+    edited = handler.handle(_update(body={"mid": "edit.after", "text": "/edit причина износ"}))
+    assert "уже подтверждён" in edited.reply_text
+    assert service.get(older.id).cause is None
 
 
 def test_search_result_includes_action_and_outcome():

@@ -128,11 +128,10 @@ class DbCaseService:
     def get(self, case_id: str) -> Case:
         return _row_to_case(self._get_row(case_id))
 
-    def latest_draft(self, author_id: str) -> Case | None:
+    def latest_max_case(self, author_id: str) -> Case | None:
         stmt = (
             select(CaseRow)
             .where(
-                CaseRow.status == "draft",
                 CaseRow.source_type == "max_message",
                 CaseRow.source_author_id == author_id,
             )

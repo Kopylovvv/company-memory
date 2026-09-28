@@ -84,15 +84,13 @@ class CaseService:
         except KeyError as exc:
             raise CaseNotFoundError(case_id) from exc
 
-    def latest_draft(self, author_id: str) -> Case | None:
-        drafts = (
+    def latest_max_case(self, author_id: str) -> Case | None:
+        cases = (
             case
             for case in self._cases.values()
-            if case.status == "draft"
-            and case.source.type == "max_message"
-            and case.source.author_id == author_id
+            if case.source.type == "max_message" and case.source.author_id == author_id
         )
-        return max(drafts, key=lambda case: (case.created_at, case.id), default=None)
+        return max(cases, key=lambda case: (case.created_at, case.id), default=None)
 
     def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case:
         case = self.get(case_id)
