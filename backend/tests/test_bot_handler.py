@@ -336,6 +336,7 @@ def test_search_command_returns_only_confirmed_cases_and_creates_no_draft():
     assert "Симптом: вибрация насоса" in result.reply_text
     assert "Источник:" in result.reply_text
     assert "source-confirmed" not in result.reply_text
+    assert "Участник ремонта" not in result.reply_text
     assert len(service.search(q=None, equipment_id=None, limit=20)) == 1
 
 

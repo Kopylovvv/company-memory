@@ -105,11 +105,6 @@ class MaxUpdateHandler:
                 if case.equipment is not None
                 else "оборудование не указано"
             )
-            participant = (
-                case.participant.display_name or case.participant.id
-                if case.participant is not None
-                else "не указан в сообщении"
-            )
             detail = [f"{index}. {equipment}" + (" · демо" if case.is_demo else "")]
             for label, value in (
                 ("Симптом", case.symptom),
@@ -119,7 +114,10 @@ class MaxUpdateHandler:
             ):
                 if value:
                     detail.append(f"{label}: {value[:180]}")
-            detail.append(f"Участник ремонта: {participant}")
+            if case.participant is not None:
+                detail.append(
+                    f"Участник ремонта: {case.participant.display_name or case.participant.id}"
+                )
             source_type = "MAX" if case.source.type == "max_message" else "синтетические данные"
             detail.append(f"Источник: {source_type}, {case.source.received_at.date()}")
             lines.append("\n".join(detail))
