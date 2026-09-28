@@ -130,7 +130,7 @@ def test_search_excludes_draft_cases(service):
     assert not any(r.case.id == case.id for r in results)
 
 
-def test_latest_draft_is_persisted_and_scoped_to_max_author(service):
+def test_latest_max_case_is_persisted_and_scoped_to_max_author(service):
     first, _ = service.create(_create_request())
     second, _ = service.create(
         _create_request(
@@ -145,10 +145,15 @@ def test_latest_draft_is_persisted_and_scoped_to_max_author(service):
         )
     )
 
-    assert service.latest_draft(AUTHOR.user_id).id == second.id
-    assert service.latest_draft(STRANGER.user_id) is None
+    assert service.latest_max_case(AUTHOR.user_id).id == second.id
+    assert service.latest_max_case(STRANGER.user_id) is None
     service.confirm(second.id, CaseConfirmRequest(), AUTHOR)
-    assert service.latest_draft(AUTHOR.user_id).id == first.id
+    # Still the confirmed one: falling back to `first` would let a repeated
+    # /confirm confirm a draft the author never reviewed.
+    latest = service.latest_max_case(AUTHOR.user_id)
+    assert latest.id == second.id
+    assert latest.status == "confirmed"
+    assert service.get(first.id).status == "draft"
 
 
 def test_search_by_problem_ranks_confirmed_cases_only(service):

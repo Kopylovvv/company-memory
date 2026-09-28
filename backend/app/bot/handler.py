@@ -174,7 +174,9 @@ class MaxUpdateHandler:
             )
 
         if case_id is None:
-            latest = self._case_service.latest_draft(actor.user_id)
+            # The author's latest case, whatever its status: if it is already
+            # confirmed, a repeated /confirm must say so, not reach for an older draft.
+            latest = self._case_service.latest_max_case(actor.user_id)
             if latest is None:
                 return self._reply(
                     "У вас нет черновика для исправления. Сначала отправьте описание ремонта.",
