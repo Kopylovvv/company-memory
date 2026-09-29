@@ -7,6 +7,7 @@ public HTTPS stand is up (Issue #11).
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from time import monotonic
 
 from app.ai.extraction import ExtractionOutcome
 from app.bot.models import UPDATE_BOT_STARTED, UPDATE_MESSAGE_CREATED, MaxUpdate, to_utc
@@ -38,7 +39,9 @@ HELP_TEXT = (
     "Отправьте описание ремонта — я сохраню черновик и предложу поля для проверки. "
     "Для последнего своего черновика: /edit <поле> <значение> и /confirm. "
     "Поля: оборудование, симптом, причина, действие, результат. "
-    "Для поиска: /search <описание проблемы>. "
+    "Для поиска: /search <описание проблемы>. Если выбрать /search или /edit "
+    "из подсказок MAX, ответьте на вопрос бота следующим сообщением. "
+    "Чтобы передумать, отправьте /cancel. "
     "Команды без ID работают с вашим последним черновиком."
 )
 
@@ -61,14 +64,67 @@ class HandledUpdate:
 IGNORED = HandledUpdate()
 
 
+class PendingCommandStore:
+    """Short-lived prompts for commands that MAX sends as soon as they are tapped.
+
+    This is deliberately process-local: only one bot poller uses the token. If it
+    restarts during a prompt, the user can tap the command again. Recent replies
+    are cached so a redelivered answer is not interpreted as a new case.
+    """
+
+    def __init__(self, ttl_seconds: int = 300) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._pending: dict[tuple[int, int | None], tuple[str, float]] = {}
+        self._replies: dict[tuple[int, int | None, str], tuple[HandledUpdate, float]] = {}
+
+    def begin(self, key: tuple[int, int | None], command: str) -> None:
+        if len(self._pending) >= 512:
+            now = monotonic()
+            self._pending = {
+                conversation: value
+                for conversation, value in self._pending.items()
+                if value[1] > now
+            }
+            if len(self._pending) >= 512:
+                self._pending.pop(next(iter(self._pending)))
+        self._pending[key] = (command, monotonic() + self._ttl_seconds)
+
+    def peek(self, key: tuple[int, int | None]) -> str | None:
+        entry = self._pending.get(key)
+        if entry and entry[1] > monotonic():
+            return entry[0]
+        self._pending.pop(key, None)
+        return None
+
+    def clear(self, key: tuple[int, int | None]) -> bool:
+        entry = self._pending.pop(key, None)
+        return entry is not None and entry[1] > monotonic()
+
+    def replay(self, key: tuple[int, int | None], mid: str) -> HandledUpdate | None:
+        entry = self._replies.get((*key, mid))
+        return entry[0] if entry and entry[1] > monotonic() else None
+
+    def remember(self, key: tuple[int, int | None], mid: str, reply: HandledUpdate) -> None:
+        if len(self._replies) >= 512:
+            now = monotonic()
+            self._replies = {
+                message_key: value for message_key, value in self._replies.items() if value[1] > now
+            }
+            if len(self._replies) >= 512:
+                self._replies.pop(next(iter(self._replies)))
+        self._replies[(*key, mid)] = (reply, monotonic() + self._ttl_seconds)
+
+
 class MaxUpdateHandler:
     def __init__(
         self,
         case_service: CaseServiceProtocol,
         draft_extractor: Callable[[str], ExtractionOutcome] | None = None,
+        pending_commands: PendingCommandStore | None = None,
     ) -> None:
         self._case_service = case_service
         self._draft_extractor = draft_extractor
+        self._pending_commands = pending_commands or PendingCommandStore()
 
     def _reply(self, text: str, *, user_id: int | None, chat_id: int | None) -> HandledUpdate:
         return HandledUpdate(reply_text=text, reply_user_id=user_id, reply_chat_id=chat_id)
@@ -222,20 +278,95 @@ class MaxUpdateHandler:
 
         reply_user_id = None if message.recipient.chat_id else sender.user_id
         reply_chat_id = message.recipient.chat_id
+        conversation = (sender.user_id, reply_chat_id)
+        replay = self._pending_commands.replay(conversation, message.body.mid)
+        if replay is not None:
+            return replay
 
         text = (message.body.text or "").strip()
         if not text:
             return self._reply(TEXT_ONLY_NOTICE, user_id=reply_user_id, chat_id=reply_chat_id)
 
+        if not text.startswith("/"):
+            pending = self._pending_commands.peek(conversation)
+            if pending == "search":
+                self._pending_commands.clear(conversation)
+                reply = self._search(text, user_id=reply_user_id, chat_id=reply_chat_id)
+                self._pending_commands.remember(conversation, message.body.mid, reply)
+                return reply
+            if pending == "edit":
+                parts = text.split(maxsplit=1)
+                if len(parts) < 2 or parts[0].lower() not in {
+                    "оборудование",
+                    "симптом",
+                    "причина",
+                    "действие",
+                    "результат",
+                }:
+                    reply = self._reply(
+                        "Напишите поле и новое значение одним сообщением, например: "
+                        "результат течь прекратилась. Для выхода отправьте /cancel.",
+                        user_id=reply_user_id,
+                        chat_id=reply_chat_id,
+                    )
+                    self._pending_commands.remember(conversation, message.body.mid, reply)
+                    return reply
+                self._pending_commands.clear(conversation)
+                reply = self._change_case(
+                    f"/edit {text}",
+                    sender_id=sender.user_id,
+                    user_id=reply_user_id,
+                    chat_id=reply_chat_id,
+                )
+                self._pending_commands.remember(conversation, message.body.mid, reply)
+                return reply
+
+        if text == "/cancel":
+            cancelled = self._pending_commands.clear(conversation)
+            reply = self._reply(
+                "Действие отменено. Можете отправить описание ремонта или выбрать другую команду."
+                if cancelled
+                else (
+                    "Сейчас нечего отменять. Можете отправить описание ремонта или выбрать команду."
+                ),
+                user_id=reply_user_id,
+                chat_id=reply_chat_id,
+            )
+            self._pending_commands.remember(conversation, message.body.mid, reply)
+            return reply
+
+        self._pending_commands.clear(conversation)
+
         if text in {"/start", "/help"}:
             return self._reply(HELP_TEXT, user_id=reply_user_id, chat_id=reply_chat_id)
         if text == "/search" or text.startswith("/search "):
+            if text == "/search":
+                self._pending_commands.begin(conversation, "search")
+                reply = self._reply(
+                    "Что ищем? Напишите описание проблемы следующим сообщением, "
+                    "например: вибрация насоса. Передумали — /cancel.",
+                    user_id=reply_user_id,
+                    chat_id=reply_chat_id,
+                )
+                self._pending_commands.remember(conversation, message.body.mid, reply)
+                return reply
             return self._search(
                 text.removeprefix("/search").strip(),
                 user_id=reply_user_id,
                 chat_id=reply_chat_id,
             )
         if text in {"/edit", "/confirm"} or text.startswith(("/edit ", "/confirm ")):
+            if text == "/edit":
+                self._pending_commands.begin(conversation, "edit")
+                reply = self._reply(
+                    "Что исправить? Следующим сообщением напишите поле и значение, "
+                    "например: результат течь прекратилась. Можно исправить: оборудование, "
+                    "симптом, причина, действие, результат. Передумали — /cancel.",
+                    user_id=reply_user_id,
+                    chat_id=reply_chat_id,
+                )
+                self._pending_commands.remember(conversation, message.body.mid, reply)
+                return reply
             return self._change_case(
                 text,
                 sender_id=sender.user_id,

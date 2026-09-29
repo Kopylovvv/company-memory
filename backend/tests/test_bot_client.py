@@ -102,6 +102,7 @@ def test_command_hints_are_registered_with_max():
     assert captured["path"] == "/me/commands"
     assert '"name":"search"' in captured["body"]
     assert '"name":"confirm"' in captured["body"]
+    assert '"name":"cancel"' in captured["body"]
 
 
 def test_http_error_does_not_leak_the_response_body():

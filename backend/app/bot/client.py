@@ -58,6 +58,7 @@ class MaxClient:
                     {"name": "search", "description": "Найти подтверждённый случай"},
                     {"name": "edit", "description": "Исправить последний свой черновик"},
                     {"name": "confirm", "description": "Подтвердить последний свой черновик"},
+                    {"name": "cancel", "description": "Отменить ожидание ответа"},
                 ]
             },
         )
