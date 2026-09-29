@@ -23,6 +23,15 @@ class CaseServiceProtocol(Protocol):
 
     def get(self, case_id: str) -> Case: ...
 
+    def latest_max_case(self, author_id: str) -> Case | None:
+        """Most recent MAX case by this author, draft or confirmed, for commands without an ID.
+
+        Deliberately not "the latest draft": once that draft is confirmed, the latest
+        draft becomes an older one the author never reviewed, and a repeated or
+        redelivered `/confirm` would confirm it.
+        """
+        ...
+
     def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case: ...
 
     def confirm(self, case_id: str, payload: CaseConfirmRequest, actor: Actor) -> Case: ...

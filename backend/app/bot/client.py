@@ -46,6 +46,22 @@ class MaxClient:
         """Bot identity. Used to check the token and to ignore the bot's own messages."""
         return self._request("GET", "/me").json()
 
+    def set_commands(self) -> None:
+        """Show supported commands in MAX when a user types '/'."""
+        self._request(
+            "PATCH",
+            "/me/commands",
+            json={
+                "commands": [
+                    {"name": "start", "description": "Как пользоваться ботом"},
+                    {"name": "help", "description": "Подсказка по командам"},
+                    {"name": "search", "description": "Найти подтверждённый случай"},
+                    {"name": "edit", "description": "Исправить последний свой черновик"},
+                    {"name": "confirm", "description": "Подтвердить последний свой черновик"},
+                ]
+            },
+        )
+
     def get_updates(self, marker: int | None = None) -> MaxUpdateList:
         params: dict[str, object] = {
             "limit": self._settings.updates_limit,

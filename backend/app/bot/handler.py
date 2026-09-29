@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.ai.extraction import ExtractionOutcome
-from app.bot.models import UPDATE_MESSAGE_CREATED, MaxUpdate, to_utc
+from app.bot.models import UPDATE_BOT_STARTED, UPDATE_MESSAGE_CREATED, MaxUpdate, to_utc
 from app.cases.errors import (
     CaseAlreadyConfirmedError,
     CaseForbiddenError,
@@ -27,21 +27,19 @@ from app.cases.models import (
 from app.cases.protocol import CaseServiceProtocol
 from app.identity import actor_from_max_event
 
-# Placeholder wording. The bot's dialogue, commands and texts are Issue #16
-# (Egor); this adapter only has to confirm receipt so the sender is not left
-# without an answer.
-ACK_TEMPLATE = (
-    "Сообщение сохранено как черновик случая {case_id}. Проверьте факты: "
-    "исправьте их через /edit {case_id} <поле> <значение>, затем отправьте "
-    "/confirm {case_id}."
+ACK_TEXT = (
+    "Сообщение сохранено как черновик. Проверьте поля ниже. "
+    "Чтобы исправить последнее сообщение, напишите, например, "
+    "/edit результат течь прекратилась. Когда всё верно — /confirm."
 )
 AI_UNAVAILABLE_NOTICE = " AI сейчас недоступен, исходный текст сохранён."
 TEXT_ONLY_NOTICE = "Пока я понимаю только текстовые сообщения."
 HELP_TEXT = (
-    "Отправьте описание ремонта, чтобы сохранить черновик. "
-    "Исправьте поле командой /edit <ID> <поле> <значение> и подтвердите "
-    "командой /confirm <ID>. Поля: оборудование, симптом, причина, действие, результат. "
-    "Для поиска подтверждённого опыта напишите /search и описание проблемы."
+    "Отправьте описание ремонта — я сохраню черновик и предложу поля для проверки. "
+    "Для последнего своего черновика: /edit <поле> <значение> и /confirm. "
+    "Поля: оборудование, симптом, причина, действие, результат. "
+    "Для поиска: /search <описание проблемы>. "
+    "Команды без ID работают с вашим последним черновиком."
 )
 
 
@@ -85,7 +83,7 @@ class MaxUpdateHandler:
             ("результат", case.result),
         ]
         known = [f"{label}: {value}" for label, value in fields if value]
-        return "\n📝 Черновик AI, проверьте факты:\n" + "\n".join(known) if known else ""
+        return "\n📝 Предложенные поля, проверьте факты:\n" + "\n".join(known) if known else ""
 
     def _search(self, query: str, *, user_id: int | None, chat_id: int | None) -> HandledUpdate:
         if not query:
@@ -99,68 +97,100 @@ class MaxUpdateHandler:
             return self._reply(
                 "Подтверждённых похожих случаев пока нет.", user_id=user_id, chat_id=chat_id
             )
-        lines = ["Похожие подтверждённые случаи:"]
-        for result in results:
+        lines = ["Похожие подтверждённые случаи (это опыт коллег, не диагноз):"]
+        for index, result in enumerate(results, start=1):
             case = result.case
             equipment = (
                 case.equipment.label or case.equipment.id
                 if case.equipment is not None
                 else "оборудование не указано"
             )
-            summary = (case.symptom or case.action or case.result or "без описания")[:120]
-            participant = (
-                case.participant.display_name or case.participant.id
-                if case.participant is not None
-                else "не указан"
-            )
-            lines.append(
-                f"{case.id}: {equipment}; {summary}; участник: {participant}; "
-                f"источник: {case.source.id}"
-            )
-        return self._reply("\n".join(lines), user_id=user_id, chat_id=chat_id)
+            detail = [f"{index}. {equipment}" + (" · демо" if case.is_demo else "")]
+            for label, value in (
+                ("Симптом", case.symptom),
+                ("Причина", case.cause),
+                ("Что сделали", case.action),
+                ("Результат", case.result),
+            ):
+                if value:
+                    detail.append(f"{label}: {value[:180]}")
+            if case.participant is not None:
+                detail.append(
+                    f"Участник ремонта: {case.participant.display_name or case.participant.id}"
+                )
+            source_type = "MAX" if case.source.type == "max_message" else "ручной ввод"
+            detail.append(f"Источник: {source_type}, {case.source.received_at.date()}")
+            lines.append("\n".join(detail))
+        return self._reply("\n\n".join(lines), user_id=user_id, chat_id=chat_id)
 
     def _change_case(
         self, text: str, *, sender_id: int, user_id: int | None, chat_id: int | None
     ) -> HandledUpdate:
         parts = text.split(maxsplit=3)
         command = parts[0]
+        actor = actor_from_max_event(sender_id)
         if command == "/confirm":
-            if len(parts) != 2:
+            if len(parts) > 2:
                 return self._reply(
-                    "Формат: /confirm <ID черновика>", user_id=user_id, chat_id=chat_id
-                )
-            case_id = parts[1]
-            payload = CaseConfirmRequest()
-        else:
-            if len(parts) != 4 or not parts[3].strip():
-                return self._reply(
-                    "Формат: /edit <ID черновика> <поле> <значение>",
+                    "Формат: /confirm или /confirm <ID черновика>",
                     user_id=user_id,
                     chat_id=chat_id,
                 )
-            case_id = parts[1]
-            field = {
+            case_id = parts[1] if len(parts) == 2 else None
+            payload = CaseConfirmRequest()
+        else:
+            field_names = {
                 "оборудование": "equipment",
                 "симптом": "symptom",
                 "причина": "cause",
                 "действие": "action",
                 "результат": "result",
-            }.get(parts[2].lower())
+            }
+            if len(parts) >= 2 and parts[1].lower() in field_names:
+                case_id = None
+                field_name = parts[1].lower()
+                value = text.split(maxsplit=2)[2].strip() if len(parts) >= 3 else ""
+            elif len(parts) == 4:
+                case_id = parts[1]
+                field_name = parts[2].lower()
+                value = parts[3].strip()
+            else:
+                return self._reply(
+                    "Формат: /edit <поле> <значение> (или /edit <ID> <поле> <значение>)",
+                    user_id=user_id,
+                    chat_id=chat_id,
+                )
+            field = field_names.get(field_name)
             if field is None:
                 return self._reply(HELP_TEXT, user_id=user_id, chat_id=chat_id)
-            value = parts[3].strip()
+            if not value:
+                return self._reply(
+                    "После названия поля напишите новое значение.",
+                    user_id=user_id,
+                    chat_id=chat_id,
+                )
             payload = CaseUpdateRequest(
                 **{field: Equipment(id=value) if field == "equipment" else value}
             )
 
-        actor = actor_from_max_event(sender_id)
+        if case_id is None:
+            # The author's latest case, whatever its status: if it is already
+            # confirmed, a repeated /confirm must say so, not reach for an older draft.
+            latest = self._case_service.latest_max_case(actor.user_id)
+            if latest is None:
+                return self._reply(
+                    "У вас нет черновика для исправления. Сначала отправьте описание ремонта.",
+                    user_id=user_id,
+                    chat_id=chat_id,
+                )
+            case_id = latest.id
         try:
             if command == "/confirm":
                 case = self._case_service.confirm(case_id, payload, actor)
-                response = f"✅ Случай {case.id} подтверждён и доступен в поиске."
+                response = "✅ Случай подтверждён и доступен в поиске. Попробуйте /search."
             else:
                 case = self._case_service.update(case_id, payload, actor)
-                response = f"Черновик {case.id} обновлён." + self._draft_summary(case)
+                response = "Черновик обновлён." + self._draft_summary(case)
         except CaseNotFoundError:
             response = "Черновик с таким ID не найден."
         except CaseForbiddenError:
@@ -170,11 +200,17 @@ class MaxUpdateHandler:
         except InsufficientDataError:
             response = (
                 "Для подтверждения укажите оборудование и хотя бы симптом, "
-                "действие или результат через /edit."
+                "действие или результат через /edit <поле> <значение>."
             )
         return self._reply(response, user_id=user_id, chat_id=chat_id)
 
     def handle(self, update: MaxUpdate) -> HandledUpdate:
+        if update.update_type == UPDATE_BOT_STARTED and update.user and not update.user.is_bot:
+            return self._reply(
+                HELP_TEXT,
+                user_id=None if update.chat_id else update.user.user_id,
+                chat_id=update.chat_id,
+            )
         if update.update_type != UPDATE_MESSAGE_CREATED or update.message is None:
             return IGNORED
 
@@ -239,7 +275,7 @@ class MaxUpdateHandler:
         return HandledUpdate(
             case=case,
             created=created,
-            reply_text=ACK_TEMPLATE.format(case_id=case.id)
+            reply_text=ACK_TEXT
             + self._draft_summary(case)
             + (AI_UNAVAILABLE_NOTICE if extraction_error else ""),
             reply_user_id=reply_user_id,

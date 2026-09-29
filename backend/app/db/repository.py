@@ -128,6 +128,19 @@ class DbCaseService:
     def get(self, case_id: str) -> Case:
         return _row_to_case(self._get_row(case_id))
 
+    def latest_max_case(self, author_id: str) -> Case | None:
+        stmt = (
+            select(CaseRow)
+            .where(
+                CaseRow.source_type == "max_message",
+                CaseRow.source_author_id == author_id,
+            )
+            .order_by(CaseRow.created_at.desc(), CaseRow.id.desc())
+            .limit(1)
+        )
+        row = self._session.execute(stmt).scalar_one_or_none()
+        return _row_to_case(row) if row is not None else None
+
     def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case:
         row = self._get_row(case_id)
         ensure_may_modify(actor, case_id=case_id, source_author_id=row.source_author_id)

@@ -84,6 +84,14 @@ class CaseService:
         except KeyError as exc:
             raise CaseNotFoundError(case_id) from exc
 
+    def latest_max_case(self, author_id: str) -> Case | None:
+        cases = (
+            case
+            for case in self._cases.values()
+            if case.source.type == "max_message" and case.source.author_id == author_id
+        )
+        return max(cases, key=lambda case: (case.created_at, case.id), default=None)
+
     def update(self, case_id: str, payload: CaseUpdateRequest, actor: Actor) -> Case:
         case = self.get(case_id)
         ensure_may_modify(actor, case_id=case_id, source_author_id=case.source.author_id)

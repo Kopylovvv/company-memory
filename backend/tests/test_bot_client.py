@@ -86,6 +86,24 @@ def test_send_text_needs_a_destination():
             client.send_text("готово", user_id=None, chat_id=None)
 
 
+def test_command_hints_are_registered_with_max():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["body"] = request.read().decode()
+        return httpx.Response(200, json={"commands": []})
+
+    with _client(handler) as client:
+        client.set_commands()
+
+    assert captured["method"] == "PATCH"
+    assert captured["path"] == "/me/commands"
+    assert '"name":"search"' in captured["body"]
+    assert '"name":"confirm"' in captured["body"]
+
+
 def test_http_error_does_not_leak_the_response_body():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"code": "verify.token", "message": TOKEN})
