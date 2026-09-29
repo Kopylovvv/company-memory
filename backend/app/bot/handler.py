@@ -344,7 +344,7 @@ class MaxUpdateHandler:
                 self._pending_commands.begin(conversation, "search")
                 reply = self._reply(
                     "Что ищем? Напишите описание проблемы следующим сообщением, "
-                    "например: вибрация насоса.",
+                    "например: вибрация насоса. Передумали — /cancel.",
                     user_id=reply_user_id,
                     chat_id=reply_chat_id,
                 )
@@ -361,7 +361,7 @@ class MaxUpdateHandler:
                 reply = self._reply(
                     "Что исправить? Следующим сообщением напишите поле и значение, "
                     "например: результат течь прекратилась. Можно исправить: оборудование, "
-                    "симптом, причина, действие, результат.",
+                    "симптом, причина, действие, результат. Передумали — /cancel.",
                     user_id=reply_user_id,
                     chat_id=reply_chat_id,
                 )
