@@ -7,7 +7,7 @@ live demo message and runs the `after_live` queries, which is the demo's
 
 Metrics, over the top `TOP_K` results:
 - hit rate: queries with an expected case that return one of them;
-- honest empty rate: queries without an answer that return nothing, or only
+- allowed-result rate for no-answer queries: return nothing, or only
   results listed as acceptable for them;
 - unrelated: results that are neither expected nor listed as acceptable.
 
@@ -128,7 +128,7 @@ def format_report(report: SearchReport) -> str:
     lines += [
         "",
         f"Попадание в top-{TOP_K}: {hits}/{answerable}",
-        f"Честный пустой ответ: {empty}/{unanswerable}",
+        f"Запросы без эталонного ответа, без посторонних результатов: {empty}/{unanswerable}",
         f"Лишних результатов: {report.unrelated_results}",
     ]
     return "\n".join(lines)

@@ -1,19 +1,23 @@
-# Backend — Андрей / AI — Макс
+# Backend и бот MAX
 
-FastAPI, Python 3.13. Входная точка: `app/main.py`.
-Команды запуска и проверок: [development.md](../docs/development.md).
+FastAPI, Python 3.13, PostgreSQL. Вход API: `app/main.py`; бот:
+`python -m app.bot.polling`. Команды запуска и проверки —
+[development.md](../docs/development.md), основной пользовательский сценарий —
+[корневой README](../README.md).
 
-- `app/cases/` — контракт случая (Pydantic) и in-memory сервис для тестов (Андрей).
-- `app/api/` — HTTP-маршруты, error handlers и DI (Андрей).
-- `app/db/` — модели, сессии и репозиторий PostgreSQL (Андрей).
-- `migrations/` — Alembic-миграции (Андрей).
-- `app/bot/` — адаптер MAX и обработка событий (Андрей).
-- `app/ai/` — извлечение полей и поиск (Макс).
-- `tests/` — проверки поведения API и модулей.
+- `app/cases/` — модели и общий контракт, in-memory сервис для тестов.
+- `app/api/` — HTTP-маршруты и зависимости.
+- `app/db/` — PostgreSQL, сессии и сервис хранения.
+- `migrations/` — Alembic-миграции, применяются при запуске контейнера API.
+- `app/bot/` — long polling MAX, диалог, команды и отмена ожидания.
+- `app/ai/` — YandexGPT, проверка извлечения, локальный поиск и оценка.
+- `tests/` — поведение API, бота, AI и PostgreSQL.
 
-Реализованы `GET /api/health` и API случаев (`/api/cases`,
-`/api/equipment/{id}/history`) с хранением в PostgreSQL — см.
-`contracts/README.md`. Контракт bot-only MVP принят 22 сентября. Реальной
-авторизации ещё нет: подтверждение случая использует временный заголовок
-(`app/api/deps.py`). Не размещайте будущие маршруты с корпоративными данными
-публично без задачи авторизации.
+Бот вызывает сервис хранения напрямую с автором из события MAX. HTTP API случаев
+по умолчанию возвращает `401`, поскольку не принимает произвольный user_id как
+доказательство личности. `ALLOW_DEMO_IDENTITY=true` разрешает локальный
+`X-Demo-User-Id` только для разработки; production его не включает.
+
+Рабочая схема хранится в PostgreSQL. Контракт и требования подтверждения —
+[contracts/README.md](../contracts/README.md). История оборудования реализована
+во внутреннем API, но не отдельной командой бота. Рабочие ключи в Git не входят.
