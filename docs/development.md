@@ -2,8 +2,8 @@
 
 ## Весь проект через Docker
 
-Из корня: `cp .env.example .env`, затем `docker compose up --build`.
-После изменения исходников пересоберите: `docker compose up --build`.
+Из корня: `cp .env.example .env`, затем заполните тестовые ключи и выполните `docker compose --profile bot up -d --build`.
+После изменения исходников пересоберите: `docker compose --profile bot up -d --build`.
 Это простой запуск без hot reload. `.env` не коммитим.
 
 ## Backend отдельно
@@ -34,6 +34,8 @@ uv run pytest
 
 ```sh
 export ALLOW_DEMO_IDENTITY=true
+# Запустите или перезапустите отдельный uvicorn с этой переменной.
+# Экспорт в другом терминале не изменяет окружение уже работающего процесса.
 curl -H "X-Demo-User-Id: demo-user-001" http://127.0.0.1:8000/api/cases
 ```
 
@@ -81,7 +83,9 @@ npm run build
 (`alembic upgrade head`) перед запуском `uvicorn`. Для запуска backend вне
 Docker: `docker compose up -d db`, затем из `backend/` — `uv run alembic
 upgrade head`. Настройки подключения — переменные `POSTGRES_*` (см.
-`.env.example`); без них используются значения по умолчанию оттуда же.
+`.env.example`); для запуска вне Docker явно задайте хост и порт доступной тестовой БД.
+Локальная Compose-БД не публикует порт на хост; для тестов вне контейнера нужна
+отдельная БД или локальный override порта, production-порт открывать не нужно.
 
 Для просмотра БД: `docker compose exec db psql -U company_memory -d company_memory`
 (если изменили пользователя или БД, подставьте свои значения).
@@ -94,6 +98,9 @@ upgrade head`. Настройки подключения — переменны�
 
 Ruff, pytest (с реальным Postgres-сервисом и применёнными миграциями —
 `backend/tests/test_db_case_repository.py` не пропускается в CI), сборку
-frontend и запуск Compose с проверкой маршрута API через frontend proxy. Это
-проверки каркаса; продуктовые сценарии добавляются вместе с реализацией, а не
-считаются проверенными заранее.
+frontend и запуск Compose с проверкой маршрута API через frontend proxy. Покрываются
+создание, правка, подтверждение, права автора, исключение черновиков из поиска,
+повторная доставка событий, сбои модели и ожидание аргументов с `/cancel`.
+Без доступной PostgreSQL интеграционные тесты могут пропускаться — такой прогон
+не равен полному. На 30 сентября полный прогон: 110 тестов без пропусков.
+Живые MAX и YandexGPT в CI не вызываются.
