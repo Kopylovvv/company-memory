@@ -18,7 +18,7 @@ import time
 from app.ai.yandex_gpt import ModelNotConfiguredError, load_yandex_gpt_settings
 from app.bot.ai import extract_message
 from app.bot.client import MaxApiError, MaxClient
-from app.bot.handler import HandledUpdate, MaxUpdateHandler
+from app.bot.handler import HandledUpdate, MaxUpdateHandler, PendingCommandStore
 from app.bot.models import MaxUpdate, MaxUpdateList
 from app.bot.settings import MissingTokenError, load_max_bot_settings
 from app.cases.protocol import CaseServiceProtocol
@@ -28,10 +28,13 @@ from app.db.repository import DbCaseService
 logger = logging.getLogger("app.bot.polling")
 
 ERROR_BACKOFF_SECONDS = 5.0
+PENDING_COMMANDS = PendingCommandStore()
 
 
 def _handle_update(update: MaxUpdate, case_service: CaseServiceProtocol) -> HandledUpdate:
-    handler = MaxUpdateHandler(case_service, draft_extractor=extract_message)
+    handler = MaxUpdateHandler(
+        case_service, draft_extractor=extract_message, pending_commands=PENDING_COMMANDS
+    )
     return handler.handle(update)
 
 

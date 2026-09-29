@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 from app.ai.extraction import DraftExtraction, ExtractionOutcome
 from app.bot import polling
 from app.bot.ai import extract_message
-from app.bot.handler import AI_UNAVAILABLE_NOTICE, TEXT_ONLY_NOTICE, MaxUpdateHandler
+from app.bot.handler import (
+    AI_UNAVAILABLE_NOTICE,
+    TEXT_ONLY_NOTICE,
+    MaxUpdateHandler,
+    PendingCommandStore,
+)
 from app.bot.models import MaxUpdate, MaxUpdateList
 from app.cases.models import (
     CaseConfirmRequest,
@@ -128,6 +133,117 @@ def test_bot_started_greets_the_user_with_command_help():
     assert "/confirm" in outcome.reply_text
     assert outcome.reply_chat_id == 777
     assert outcome.case is None
+
+
+def test_tapped_search_command_accepts_query_in_next_message_without_creating_draft():
+    handler, service = _handler()
+    created = handler.handle(_update()).case
+    assert created is not None
+    author = actor_from_max_event(12345)
+    service.update(
+        created.id,
+        CaseUpdateRequest(equipment=Equipment(id="Н-204"), symptom="вибрация насоса"),
+        author,
+    )
+    service.confirm(created.id, CaseConfirmRequest(), author)
+
+    prompt = handler.handle(_update(body={"mid": "search.prompt", "text": "/search"}))
+    query = _update(body={"mid": "search.query", "text": "вибрация насоса"})
+    found = handler.handle(query)
+    redelivered = handler.handle(query)
+
+    assert "следующим сообщением" in prompt.reply_text.lower()
+    assert "Н-204" in found.reply_text
+    assert found.reply_text == redelivered.reply_text
+    assert found.case is None and redelivered.case is None
+    assert len(service._cases) == 1
+
+
+def test_tapped_edit_command_accepts_field_and_value_in_next_message():
+    handler, service = _handler()
+    created = handler.handle(_update()).case
+    assert created is not None
+
+    prompt = handler.handle(_update(body={"mid": "edit.prompt", "text": "/edit"}))
+    answer = _update(body={"mid": "edit.answer", "text": "результат вибрация исчезла"})
+    edited = handler.handle(answer)
+    redelivered = handler.handle(answer)
+
+    assert "следующим сообщением" in prompt.reply_text.lower()
+    assert "вибрация исчезла" in edited.reply_text
+    assert service.get(created.id).result == "вибрация исчезла"
+    assert edited.reply_text == redelivered.reply_text
+
+
+def test_tapped_edit_keeps_waiting_after_incomplete_answer():
+    handler, service = _handler()
+    created = handler.handle(_update()).case
+    assert created is not None
+    handler.handle(_update(body={"mid": "edit.prompt", "text": "/edit"}))
+
+    incomplete = handler.handle(_update(body={"mid": "edit.incomplete", "text": "результат"}))
+    complete = handler.handle(
+        _update(body={"mid": "edit.complete", "text": "результат течь устранена"})
+    )
+
+    assert "поле и новое значение" in incomplete.reply_text
+    assert incomplete.case is None
+    assert "Черновик обновлён" in complete.reply_text
+    assert service.get(created.id).result == "течь устранена"
+
+
+def test_pending_command_is_scoped_to_author_and_new_command_cancels_it():
+    handler, service = _handler()
+    handler.handle(_update(body={"mid": "search.prompt", "text": "/search"}))
+
+    other_user = handler.handle(
+        _update(
+            sender={"user_id": 67890, "first_name": "Петр", "is_bot": False},
+            body={"mid": "other.description", "text": "На насосе появилась течь"},
+        )
+    )
+    assert other_user.created is True
+
+    handler.handle(_update(body={"mid": "help.cancel", "text": "/help"}))
+    own_description = handler.handle(
+        _update(body={"mid": "own.description", "text": "На насосе появилась вибрация"})
+    )
+    assert own_description.created is True
+    assert len(service._cases) == 2
+
+
+def test_pending_command_survives_new_handler_for_next_polled_update():
+    service = CaseService()
+    pending = PendingCommandStore()
+    first_handler = MaxUpdateHandler(service, pending_commands=pending)
+    next_handler = MaxUpdateHandler(service, pending_commands=pending)
+
+    first_handler.handle(_update(body={"mid": "search.prompt", "text": "/search"}))
+    answer = next_handler.handle(
+        _update(body={"mid": "search.answer", "text": "нет такого случая"})
+    )
+
+    assert "пока нет" in answer.reply_text
+    assert answer.case is None
+    assert len(service._cases) == 0
+
+
+def test_cancel_stops_waiting_for_search_or_edit_answer():
+    handler, service = _handler()
+    handler.handle(_update(body={"mid": "search.prompt", "text": "/search"}))
+    cancelled = handler.handle(_update(body={"mid": "search.cancel", "text": "/cancel"}))
+    description = handler.handle(
+        _update(body={"mid": "repair.after.cancel", "text": "На насосе появилась течь"})
+    )
+    assert "Действие отменено" in cancelled.reply_text
+    assert description.created is True
+
+    handler.handle(_update(body={"mid": "edit.prompt", "text": "/edit"}))
+    cancelled = handler.handle(_update(body={"mid": "edit.cancel", "text": "/cancel"}))
+    no_action = handler.handle(_update(body={"mid": "cancel.again", "text": "/cancel"}))
+    assert "Действие отменено" in cancelled.reply_text
+    assert "нечего отменять" in no_action.reply_text
+    assert len(service._cases) == 1
 
 
 def test_message_created_without_a_message_body_is_ignored():
